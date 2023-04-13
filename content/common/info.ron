@@ -1,0 +1,7 @@
+ContentPack(
+    id: "common",
+    name: "Default Content",
+    authors: [
+        "Tin Svagelj <tin.svagelj@live.com>",
+    ]
+)
