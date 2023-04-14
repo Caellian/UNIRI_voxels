@@ -1,8 +1,8 @@
 use crate::data::LoadedBlocks;
 use crate::entity::player::PlayerChunk;
+use crate::world::chunk::chunk_material::ChunkMaterial;
 use crate::world::chunk::{Chunk, ChunkInfo, Mesher};
 use crate::world::mesh::ChunkMesh;
-use crate::world::render::ChunkMaterial;
 use bevy::prelude::shape::Cube;
 use bevy::prelude::*;
 use rand::RngCore;
@@ -17,7 +17,6 @@ pub mod chunk;
 pub mod gen;
 pub mod info;
 pub mod mesh;
-pub mod render;
 pub mod vox;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -87,7 +86,7 @@ impl Default for World {
 pub fn spawn_world(
     mut commands: Commands,
     mut materials: ResMut<Assets<ChunkMaterial>>,
-    asset_server: Res<AssetServer>,
+    _asset_server: Res<AssetServer>,
 ) {
     /*
         let model: Handle<VoxelData> = asset_server.load("models/monu3.vox");
@@ -143,19 +142,33 @@ pub fn spawn_world(
         ch
     };
 
+    let cm = materials.add(ChunkMaterial {});
+
+    // TODO: Inserting same chunk material multiple times
     commands.spawn(World::default()).with_children(|c| {
-        c.spawn(ch);
+        c.spawn(ch).insert(cm.clone());
     });
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            color: Color::hex("cceecc").unwrap(),
+            illuminance: 800.,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 8.0, 4.0),
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, 20., 0., 0.)),
         ..default()
     });
+
+    // commands.spawn(PointLightBundle {
+    //     point_light: PointLight {
+    //         intensity: 1500.0,
+    //         shadows_enabled: true,
+    //         ..default()
+    //     },
+    //     transform: Transform::from_xyz(-4.0, 8.0, 4.0),
+    //     ..default()
+    // });
 }
 
 pub fn spawn_chunk_markers(
@@ -228,11 +241,8 @@ pub fn build_fresh_chunks(
             Mesher::Greedy => greedy_mesh(store, &loaded),
         };
 
-        let mat = materials.add(ChunkMaterial {});
-
         commands
             .entity(chunk)
-            .insert(mat)
             .insert(meshes.add(mesh))
             .insert(ChunkMesh { dirty: false })
             .insert(Visibility::Visible);
@@ -261,8 +271,8 @@ pub fn track_player_chunk(
 }
 
 pub fn on_chunk_change(
-    mut commands: Commands,
-    mut player_chunk: Query<&PlayerChunk, Changed<PlayerChunk>>,
-    mut chunks: Query<(Entity, &Transform, &ChunkMesh)>,
+    _commands: Commands,
+    _player_chunk: Query<&PlayerChunk, Changed<PlayerChunk>>,
+    _chunks: Query<(Entity, &Transform, &ChunkMesh)>,
 ) {
 }

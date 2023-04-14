@@ -1,71 +1,23 @@
-use crate::color::Rgb;
 use crate::world::WorldAxis;
-use crate::Vec3;
+use crate::{decl_id_type, Vec3};
 use bevy::prelude::*;
-use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
-use std::ops::Deref;
 use std::string::ToString;
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-#[repr(transparent)]
-pub struct MaterialID(String);
-
-impl Default for MaterialID {
-    fn default() -> Self {
-        MaterialID::new("unknown")
-    }
-}
+decl_id_type!(MaterialID);
 
 impl MaterialID {
-    pub fn new(id: impl AsRef<str>) -> MaterialID {
-        MaterialID(id.as_ref().to_string())
-    }
-
     #[must_use]
     pub fn air() -> MaterialID {
         MaterialID("air".to_string())
     }
 }
 
-impl Deref for MaterialID {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Deref, Deserialize)]
-#[serde(transparent)]
-#[repr(transparent)]
-pub struct BlockColor(Rgb);
-
-impl BlockColor {
-    pub fn to_array(&self) -> [f32; 4] {
-        [
-            self.0.r as f32 / 255.0,
-            self.0.g as f32 / 255.0,
-            self.0.b as f32 / 255.0,
-            1.0,
-        ]
-    }
-
-    pub fn to_bevy_color(&self) -> Color {
-        Color::Rgba {
-            red: self.0.r as f32 / 255.0,
-            green: self.0.g as f32 / 255.0,
-            blue: self.0.b as f32 / 255.0,
-            alpha: 1.0,
-        }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 pub struct BlockProperties {
-    pub color: BlockColor,
+    #[serde(deserialize_with = "crate::color::deserialize_hex_color")]
+    pub color: Color,
 }
 
 /// When visualizing, think of a cube and yourself as external observer.
@@ -164,7 +116,6 @@ impl Side {
 
     // TODO: left & right
 
-    
     pub const fn axis(self) -> WorldAxis {
         match self {
             Side::East => WorldAxis::X,
@@ -210,6 +161,17 @@ impl Side {
     pub fn offset(self, position: Vec3, amount: Option<f32>) -> Vec3 {
         position + self.direction() * amount.unwrap_or(1.0)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum Voxel {
+    /// Air / invalid state
+    #[default]
+    None,
+    /// Voxels with custom colors
+    Color(Color),
+    /// Voxels with registered materials
+    MaterialID(MaterialID),
 }
 
 /// Stores the front face of a sided block.

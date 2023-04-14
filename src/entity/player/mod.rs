@@ -18,7 +18,7 @@ impl Default for PlayerName {
 pub struct PlayerChunk(UVec3);
 
 #[derive(Default, Bundle)]
-pub struct PlayerBundle {
+pub struct Player {
     pub name: PlayerName,
     pub hp: Health,
     pub chunk: PlayerChunk,
@@ -28,9 +28,9 @@ pub struct PlayerBundle {
     pub camera: Camera3dBundle,
 }
 
-impl PlayerBundle {
-    pub fn new(name: impl AsRef<str>) -> PlayerBundle {
-        PlayerBundle {
+impl Player {
+    pub fn new(name: impl AsRef<str>) -> Player {
+        Player {
             name: PlayerName(name.as_ref().to_string()),
             hp: Health(100),
             ..Default::default()
@@ -43,5 +43,5 @@ impl PlayerBundle {
 // TODO: bundle players
 
 pub fn spawn_player(mut commands: Commands) {
-    commands.spawn(PlayerBundle::new("Debug player"));
+    commands.spawn(Player::new("Debug player"));
 }

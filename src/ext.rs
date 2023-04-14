@@ -28,28 +28,6 @@ impl Convert<wgpu::Color> for dot_vox::Color {
     }
 }
 
-impl Convert<wgpu::Color> for crate::color::Rgba {
-    fn convert(self) -> wgpu::Color {
-        wgpu::Color {
-            r: self.r as f64 / 255.0,
-            g: self.g as f64 / 255.0,
-            b: self.b as f64 / 255.0,
-            a: self.a as f64 / 255.0,
-        }
-    }
-}
-
-impl Convert<wgpu::Color> for crate::color::Rgb {
-    fn convert(self) -> wgpu::Color {
-        wgpu::Color {
-            r: self.r as f64 / 255.0,
-            g: self.g as f64 / 255.0,
-            b: self.b as f64 / 255.0,
-            a: 1.0,
-        }
-    }
-}
-
 impl Convert<bevy::math::Vec3> for bevy::math::UVec3 {
     fn convert(self) -> bevy::math::Vec3 {
         bevy::math::Vec3::new(self.x as f32, self.y as f32, self.z as f32)
@@ -58,11 +36,7 @@ impl Convert<bevy::math::Vec3> for bevy::math::UVec3 {
 
 impl Convert<bevy::math::UVec3> for bevy::math::Vec3 {
     fn convert(self) -> bevy::math::UVec3 {
-        bevy::math::UVec3::new(
-            self.x as u32,
-            self.y as u32,
-            self.z as u32,
-        )
+        bevy::math::UVec3::new(self.x as u32, self.y as u32, self.z as u32)
     }
 }
 

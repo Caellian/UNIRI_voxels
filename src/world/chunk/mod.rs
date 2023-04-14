@@ -4,16 +4,14 @@ use crate::world::gen::TerrainGenerator;
 use crate::MaterialID;
 use bevy::prelude::*;
 
+pub mod chunk_material;
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum Mesher {
+    #[default]
     Greedy,
-}
-
-impl Default for Mesher {
-    fn default() -> Self {
-        Mesher::Greedy
-    }
 }
 
 #[derive(Debug, Default, Component)]
@@ -92,7 +90,7 @@ impl<T: PartialEq> ChunkStore<T> {
             Side::Top => UVec3::new(y, self.size.y - 1 - depth, x),
             Side::Bottom => UVec3::new(self.size.x - 1 - y, depth, x),
             Side::West => UVec3::new(self.size.x - 1 - x, y, depth),
-            Side::East => UVec3::new(x, y, self.size.z as u32 - 1 - depth),
+            Side::East => UVec3::new(x, y, self.size.z - 1 - depth),
             Side::North => UVec3::new(self.size.x - 1 - depth, y, self.size.z - 1 - x),
             Side::South => UVec3::new(depth, y, x),
         });
@@ -103,7 +101,7 @@ impl<T: PartialEq> ChunkStore<T> {
     #[must_use]
     pub fn value_of_index(&self, index: u16) -> Option<&T> {
         if index == 0 {
-            return None;
+            None
         } else {
             self.values.get(index as usize - 1)
         }
@@ -178,7 +176,7 @@ impl<T: PartialEq> ChunkStore<T> {
     {
         let i = value
             .map(|it| {
-                self.index_of_value(&it).unwrap_or_else(|| {
+                self.index_of_value(it).unwrap_or_else(|| {
                     self.values.push(it.clone());
                     self.values.len() as u16
                 })

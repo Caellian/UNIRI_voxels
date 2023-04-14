@@ -1,5 +1,5 @@
-use crate::ext::Convert;
 use crate::error::ResourceError;
+use crate::ext::Convert;
 use crate::world::chunk::ChunkStore;
 use ahash::{HashMap, HashMapExt};
 use anyhow::Error;
@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
 use dot_vox::DotVoxData;
 
-use super::block::MaterialID;
+use super::block::Voxel;
 
 pub struct VoxLoader;
 
@@ -33,18 +33,14 @@ impl AssetLoader for VoxLoader {
     }
 }
 
-fn palette_label(i: usize) -> String {
-    format!("palette_{}", i)
-}
-
 async fn load_vox<'a, 'b>(
     bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
     name: impl AsRef<str>,
 ) -> Result<(), ResourceError> {
-    let name = name.as_ref().replace(" ", "_").to_lowercase();
+    let _name = name.as_ref().replace(' ', "_").to_lowercase();
 
-    let data: DotVoxData = match dot_vox::load_bytes(&bytes) {
+    let data: DotVoxData = match dot_vox::load_bytes(bytes) {
         Ok(d) => d,
         Err(e) => {
             return Err(ResourceError::Vox(e));
@@ -62,21 +58,11 @@ async fn load_vox<'a, 'b>(
         }
     }
 
-    let colors = {
-        let mut m = HashMap::new();
+    let colors: HashMap<usize, Color> = {
+        let mut m = HashMap::with_capacity(16);
         for (index, color) in data.palette.into_iter().enumerate() {
             if color_use.contains(&index) {
-                let base_color: Color = color.convert();
-
-                let color_material = load_context.set_labeled_asset(
-                    &palette_label(index),
-                    LoadedAsset::new(StandardMaterial {
-                        base_color,
-                        ..Default::default()
-                    }),
-                );
-
-                m.insert(index, color_material);
+                m.insert(index, color.convert());
             }
         }
         m
@@ -92,7 +78,7 @@ async fn load_vox<'a, 'b>(
 
             blocks.set_or_clone_value(
                 UVec3::new(vox.x as u32, vox.y as u32, vox.z as u32),
-                Some(&VoxelType::Material(colors[&(vox.i as usize)].clone())),
+                Some(&Voxel::Color(colors[&(vox.i as usize)].clone())),
             );
         }
         let model = VoxelData::new(blocks);
@@ -105,43 +91,27 @@ async fn load_vox<'a, 'b>(
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum VoxelType {
-    /// Air / invalid state
-    None,
-    /// Voxels with custom materials
-    Material(Handle<StandardMaterial>),
-    /// Voxels with registered materials
-    MaterialID(MaterialID),
-}
-
-impl Default for VoxelType {
-    fn default() -> Self {
-        VoxelType::None
-    }
-}
-
 #[derive(Debug, Clone, TypeUuid, Bundle)]
 #[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
 pub struct VoxelData {
-    pub value: ChunkStore<VoxelType>,
+    pub value: ChunkStore<Voxel>,
 }
 
 impl VoxelData {
-    pub fn new(blocks: ChunkStore<VoxelType>) -> Self {
+    pub fn new(blocks: ChunkStore<Voxel>) -> Self {
         VoxelData { value: blocks }
     }
 }
 
 struct DecimalColor(u32);
 
-impl Into<Color> for DecimalColor {
-    fn into(self) -> Color {
+impl From<DecimalColor> for Color {
+    fn from(val: DecimalColor) -> Self {
         let (a, b, g, r) = (
-            self.0 >> 24u32 & 0xFF,
-            self.0 >> 16u32 & 0xFF,
-            self.0 >> 8u32 & 0xFF,
-            self.0 & 0xFF,
+            val.0 >> 24u32 & 0xFF,
+            val.0 >> 16u32 & 0xFF,
+            val.0 >> 8u32 & 0xFF,
+            val.0 & 0xFF,
         );
 
         Color::Rgba {

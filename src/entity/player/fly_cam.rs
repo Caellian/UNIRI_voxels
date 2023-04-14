@@ -61,8 +61,8 @@ fn forward_vector(rotation: &Quat) -> Vec3 {
 
 fn forward_walk_vector(rotation: &Quat) -> Vec3 {
     let f = forward_vector(rotation);
-    let f_flattened = Vec3::new(f.x, 0.0, f.z).normalize();
-    f_flattened
+    
+    Vec3::new(f.x, 0.0, f.z).normalize()
 }
 
 fn strafe_vector(rotation: &Quat) -> Vec3 {
@@ -86,7 +86,6 @@ pub fn movement_axis(input: &Res<Input<KeyCode>>, plus: KeyCode, minus: KeyCode)
 fn camera_movement_system(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut query: Query<(&mut FlyCamera, &mut Transform)>,
 ) {
     for (mut options, mut transform) in query.iter_mut() {
@@ -141,7 +140,6 @@ fn camera_movement_system(
 fn mouse_motion_system(
     time: Res<Time>,
     mut mouse_motion_event_reader: EventReader<MouseMotion>,
-    mut window: Query<&mut Window, With<PrimaryWindow>>,
     mut query: Query<(&mut FlyCamera, &mut Transform)>,
 ) {
     let mut delta: Vec2 = Vec2::ZERO;

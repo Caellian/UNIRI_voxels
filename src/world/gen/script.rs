@@ -1,7 +1,7 @@
 use bevy::math::IVec3;
 use noise::{Fbm, NoiseFn, Simplex};
 
-pub fn noise_test(chunk_pos: IVec3, surface_height: usize, size: usize) {
+pub fn noise_test(chunk_pos: IVec3, _surface_height: usize, size: usize) {
     let fbm: Fbm<Simplex> = Fbm::new(2343536);
 
     for z in 0..size {

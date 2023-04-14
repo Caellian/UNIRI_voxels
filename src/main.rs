@@ -5,15 +5,15 @@ pub mod error;
 pub mod ext;
 pub mod math;
 pub mod ui;
+pub mod util;
 pub mod world;
 
 use crate::world::block::{BlockProperties, MaterialID};
-use crate::world::render::ChunkMaterial;
+use crate::world::chunk::chunk_material::ChunkMaterial;
 use crate::world::vox::{VoxLoader, VoxelData};
 use bevy::prelude::*;
-use bevy::render::mesh;
+
 use entity::player::fly_cam::FlyCameraPlugin;
-use wgpu::PrimitiveTopology;
 
 pub static NAME: &str = env!("CARGO_BIN_NAME");
 pub static VERSION: &str = env!("CARGO_PKG_VERSION");

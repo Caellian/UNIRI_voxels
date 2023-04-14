@@ -10,12 +10,18 @@ use std::path::{Path, PathBuf};
 static CONTENT_DIR: &str = "content";
 
 pub fn content_dir() -> PathBuf {
-    let path = dirs::data_dir()
-        .map(|data| data.join(NAME).join(CONTENT_DIR))
-        .unwrap_or(PathBuf::new().join(CONTENT_DIR));
-
-    #[cfg(feature = "dev")]
-    let path = PathBuf::new().join(CONTENT_DIR);
+    let path = {
+        #[cfg(not(feature = "dev"))]
+        {
+            dirs::data_dir()
+                .map(|data| data.join(NAME).join(CONTENT_DIR))
+                .unwrap_or(PathBuf::new().join(CONTENT_DIR))
+        }
+        #[cfg(feature = "dev")]
+        {
+            PathBuf::new().join(CONTENT_DIR)
+        }
+    };
 
     if !path.exists() {
         std::fs::create_dir_all(&path).expect("unable to create content directory");
@@ -115,7 +121,7 @@ pub struct LoadedBlocks(BTreeMap<MaterialID, BlockProperties>);
 #[derive(Resource)]
 pub struct LoadedTextures(BTreeMap<MaterialID, BlockTextureHandles>);
 
-pub fn load_content(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn load_content(mut commands: Commands, _asset_server: Res<AssetServer>) {
     let mut block_props = BTreeMap::new();
 
     let packs = content_packs();

@@ -8,12 +8,6 @@ use bevy::render::mesh::*;
 use indexmap::IndexSet;
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Default, Clone, Component)]
-pub struct Mesha {
-    pub vertices: Vec<Vec3>,
-    pub indices: Vec<u32>,
-}
-
 pub fn visible_chunk_sides(player_pos: Vec3, chunk_pos: Vec3) -> [Side; 3] {
     [
         if player_pos.x > chunk_pos.x {
@@ -123,9 +117,8 @@ pub fn greedy_mesh(blocks: &ChunkStore<MaterialID>, loaded: &LoadedBlocks) -> Me
 
                     let color = blocks
                         .value_of_index(id)
-                        .map(|id| loaded.get(id).map(|props| props.color))
-                        .flatten()
-                        .map(|c| c.to_array())
+                        .and_then(|id| loaded.get(id).map(|props| props.color))
+                        .map(|c| c.as_rgba_f32())
                         .unwrap_or([0.1, 0.3, 0.8, 1.0]);
 
                     mesh_builder.push(Vertex {
@@ -203,7 +196,7 @@ fn is_block_face_visible(
         }
     }
 
-    return true;
+    true
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -285,7 +278,7 @@ pub fn rebuild_meshes(
     for (e, chunk_info, chunk_blocks) in query.iter() {
         if !chunk_blocks.is_empty() {
             let mesh = match chunk_info.mesher {
-                Mesher::Greedy => greedy_mesh(&chunk_blocks, blocks.as_ref()),
+                Mesher::Greedy => greedy_mesh(chunk_blocks, blocks.as_ref()),
             };
 
             let mesh_handle = meshes.add(mesh);

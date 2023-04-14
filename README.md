@@ -6,10 +6,10 @@ A voxel game with simple and less proprietary software stack.
 - [x] Freefly Camera
   - [x] Keyboard and mouse navigation
   - [x] Mouse Capture
-- [ ] Chunk rendering
-  - [ ] Write array chunk code
-  - [ ] Render a single block chunk
-  - [ ] Build a chunk using a start system
+- [x] Chunk rendering
+  - [x] Write array chunk code
+  - [x] Render a single block chunk
+  - [x] Build a chunk using a start system
 - [ ] Chunk interacton
   - [ ] Add voxel breaking
     - [ ] Use enum with id support for interaction
