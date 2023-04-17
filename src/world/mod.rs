@@ -1,22 +1,20 @@
-use crate::data::LoadedBlocks;
+use crate::data::LoadedMaterials;
 use crate::entity::player::PlayerChunk;
 use crate::world::chunk::chunk_material::ChunkMaterial;
+use crate::world::chunk::mesh::ChunkMesh;
 use crate::world::chunk::{Chunk, ChunkInfo, Mesher};
-use crate::world::mesh::ChunkMesh;
 use bevy::prelude::shape::Cube;
 use bevy::prelude::*;
 use rand::RngCore;
 
-use self::block::MaterialID;
+use self::chunk::mesh::greedy_mesh;
 use self::chunk::ChunkStore;
 use self::gen::Fill;
-use self::mesh::greedy_mesh;
+use self::material::MaterialID;
 
-pub mod block;
 pub mod chunk;
 pub mod gen;
-pub mod info;
-pub mod mesh;
+pub mod material;
 pub mod vox;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -142,11 +140,9 @@ pub fn spawn_world(
         ch
     };
 
-    let cm = materials.add(ChunkMaterial {});
-
     // TODO: Inserting same chunk material multiple times
     commands.spawn(World::default()).with_children(|c| {
-        c.spawn(ch).insert(cm.clone());
+        c.spawn(ch);
     });
 
     commands.spawn(DirectionalLightBundle {
@@ -231,18 +227,26 @@ pub fn spawn_chunk_markers(
 
 pub fn build_fresh_chunks(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ChunkMaterial>>,
-    loaded: Res<LoadedBlocks>,
     mut unbuilt: Query<(Entity, &ChunkInfo, &ChunkStore<MaterialID>), Without<ChunkMesh>>,
+
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut chunk_material_assets: ResMut<Assets<ChunkMaterial>>,
+
+    materials: Res<LoadedMaterials>,
 ) {
     for (chunk, info, store) in unbuilt.iter_mut() {
-        let mesh = match info.mesher {
-            Mesher::Greedy => greedy_mesh(store, &loaded),
+        let mesh_builder = match info.mesher {
+            Mesher::Greedy => greedy_mesh(store, &materials),
         };
+
+        let (mesh, face_properties) = mesh_builder.build(store, &materials);
 
         commands
             .entity(chunk)
+            .insert(chunk_material_assets.add(ChunkMaterial {
+                face_properties,
+                ..default()
+            }))
             .insert(meshes.add(mesh))
             .insert(ChunkMesh { dirty: false })
             .insert(Visibility::Visible);

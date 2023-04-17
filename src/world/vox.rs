@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
 use dot_vox::DotVoxData;
 
-use super::block::Voxel;
+use super::material::Voxel;
 
 pub struct VoxLoader;
 
@@ -100,25 +100,5 @@ pub struct VoxelData {
 impl VoxelData {
     pub fn new(blocks: ChunkStore<Voxel>) -> Self {
         VoxelData { value: blocks }
-    }
-}
-
-struct DecimalColor(u32);
-
-impl From<DecimalColor> for Color {
-    fn from(val: DecimalColor) -> Self {
-        let (a, b, g, r) = (
-            val.0 >> 24u32 & 0xFF,
-            val.0 >> 16u32 & 0xFF,
-            val.0 >> 8u32 & 0xFF,
-            val.0 & 0xFF,
-        );
-
-        Color::Rgba {
-            red: r as f32 / 255.0,
-            green: g as f32 / 255.0,
-            blue: b as f32 / 255.0,
-            alpha: a as f32 / 255.0,
-        }
     }
 }

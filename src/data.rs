@@ -1,11 +1,15 @@
 use crate::error::ResourceError;
-use crate::world::block::Side;
-use crate::{BlockProperties, MaterialID, NAME};
+use crate::world::material::Side;
+use crate::MaterialID;
+use ahash::HashMap;
 use bevy::prelude::*;
+use bevy::render::render_resource::{ShaderType, StorageBuffer};
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::BTreeMap;
-use std::ops::Deref;
+use std::hash::Hash;
+use std::mem::size_of;
 use std::path::{Path, PathBuf};
+use wgpu::Face;
 
 static CONTENT_DIR: &str = "content";
 
@@ -79,50 +83,176 @@ pub fn content_packs() -> Vec<ContentPack> {
     result
 }
 
-impl Deref for LoadedBlocks {
-    type Target = BTreeMap<MaterialID, BlockProperties>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+#[derive(Resource)]
+pub struct LoadedContentPacks(pub Vec<ContentPack>);
+
+#[derive(Debug, Clone, PartialEq, ShaderType, Deserialize)]
+#[serde(default)]
+#[repr(C)]
+pub struct FaceProperties {
+    #[serde(deserialize_with = "crate::color::deserialize_hex_color")]
+    pub base_color: Vec4,
+
+    // TODO: Handle optional textures
+    // sentinel 0?
+    /// texture_3d layer
+    #[serde(skip_deserializing)]
+    pub base_texture: u32,
+    /// position on texture_3d layer
+    #[serde(skip_deserializing)]
+    pub base_texture_uv: Vec2,
+
+    #[serde(deserialize_with = "crate::color::deserialize_hex_color")]
+    pub emissive_color: Vec4,
+
+    pub roughness: f32,
+    pub metallic: f32,
+    pub reflectance: f32,
+}
+
+impl Hash for FaceProperties {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let byte_slice = unsafe {
+            // FIXME: Reinterpreting FaceProperties as bytes to hash floats
+            let source: *const FaceProperties = self;
+            std::slice::from_raw_parts::<u8>(source as *const u8, size_of::<FaceProperties>())
+        };
+
+        byte_slice.hash(state)
     }
 }
+impl Eq for FaceProperties {}
 
-#[derive(Debug, Clone, Component)]
-pub enum BlockTextureHandles {
-    Uniform(HandleUntyped),
-    Sided([HandleUntyped; 6]),
-}
+impl Default for FaceProperties {
+    fn default() -> Self {
+        FaceProperties {
+            base_color: Vec4::new(1., 1., 1., 1.),
+            emissive_color: Vec4::new(0., 0., 0., 1.),
 
-impl BlockTextureHandles {
-    pub fn get_side(&self, s: Side) -> &HandleUntyped {
-        match self {
-            BlockTextureHandles::Uniform(it) => it,
-            BlockTextureHandles::Sided(values) => &values[s.index()],
+            roughness: 0.5,
+            metallic: 0.5,
+            reflectance: 0.5,
+
+            base_texture: Default::default(),
+            base_texture_uv: Default::default(),
         }
     }
+}
 
-    pub fn set_side(&mut self, s: Side, value: HandleUntyped) {
-        match self {
-            BlockTextureHandles::Uniform(it) => {
-                *it = value;
-            }
-            BlockTextureHandles::Sided(values) => {
-                values[s.index()] = value;
-            }
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum BlockFaces {
+    Uniform {
+        face: FaceProperties,
+    },
+    Sided {
+        face: FaceProperties,
+        face_override: HashMap<Side, FaceProperties>,
+    },
+}
+
+impl Default for BlockFaces {
+    fn default() -> Self {
+        BlockFaces::Uniform {
+            face: FaceProperties::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct MaterialProperties {
+    #[serde(deserialize_with = "crate::color::deserialize_hex_color")]
+    pub color: Vec4,
+
+    #[serde(flatten)]
+    pub faces: Option<BlockFaces>,
+}
+
+impl Default for MaterialProperties {
+    fn default() -> Self {
+        MaterialProperties {
+            color: Vec4::new(1., 1., 1., 1.),
+            faces: None,
         }
     }
 }
 
 #[derive(Resource)]
-pub struct LoadedContentPacks(Vec<ContentPack>);
+pub struct LoadedMaterials {
+    pub properties: BTreeMap<MaterialID, MaterialProperties>,
+    /// MaterialID -> (texture_location, [UVs; 6]);
+    pub texture_location: BTreeMap<MaterialID, (u16, [Rect; 6])>,
+    //pub face_positions: BTreeMap<MaterialID, [u32; 6]>,
+}
 
-#[derive(Resource)]
-pub struct LoadedBlocks(BTreeMap<MaterialID, BlockProperties>);
+impl LoadedMaterials {
+    pub fn insert_material(&mut self, id: MaterialID, mut props: MaterialProperties) {
+        if props.faces.is_none() {
+            props.faces = Some(BlockFaces::Uniform {
+                face: FaceProperties {
+                    base_color: props.color,
+                    ..default()
+                },
+            });
+        }
 
-#[derive(Resource)]
-pub struct LoadedTextures(BTreeMap<MaterialID, BlockTextureHandles>);
+        /*
+        let buffer = &mut self.buffer.get_mut().face_data;
+
+        let mut face_positions = [0u32; 6];
+
+        #[inline]
+        fn push_face(buffer: &mut Vec<FaceProperties>, face: FaceProperties) -> usize {
+            buffer.push(face.clone());
+            let mut index = buffer.len() - 1;
+
+            // TODO: replace u32::MAX w/ GPU bottleneck
+            if index >= u32::MAX as usize {
+                tracing::error!("overfull face buffer while loading materials");
+                // Some voxel sides will render as MISSING_VOXEL_FACE
+                index = 0;
+            }
+
+            return index;
+        }
+
+        match faces {
+            BlockFaces::Uniform { face } => {
+                let index = push_face(&mut buffer, face.clone());
+                for side in Side::ALL {
+                    face_positions[side as usize] = index as u32;
+                }
+            }
+            BlockFaces::Sided {
+                face,
+                face_override,
+            } => {
+                let index = push_face(&mut buffer, face.clone());
+                for side in Side::ALL {
+                    face_positions[side as usize] = index as u32;
+                }
+
+                for (side, face) in face_override {
+                    let index = push_face(&mut buffer, face.clone());
+                    face_positions[*side as usize] = index as u32;
+                }
+            }
+        }
+        */
+
+        self.properties.insert(id, props);
+        //self.face_positions.insert(id, face_positions);
+    }
+}
 
 pub fn load_content(mut commands: Commands, _asset_server: Res<AssetServer>) {
-    let mut block_props = BTreeMap::new();
+    let mut loaded = LoadedMaterials {
+        properties: BTreeMap::new(),
+        texture_location: BTreeMap::new(),
+        //buffer: StorageBuffer::default(),
+        //face_positions: BTreeMap::new(),
+    };
 
     let packs = content_packs();
     match packs.len() {
@@ -130,7 +260,33 @@ pub fn load_content(mut commands: Commands, _asset_server: Res<AssetServer>) {
         it => tracing::info!("Loading {} content pack(s)...", it),
     }
 
-    for pack in &packs {
+    fn process_material(loaded: &mut LoadedMaterials, pack: &ContentPack, material_path: &Path) {
+        let prop_file = material_path.join("properties.ron");
+
+        let name = material_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .expect("can't get material directory name");
+        let id = pack.id.clone() + ":" + name;
+
+        // TODO: Texture packing
+
+        if let Ok(prop_str) = std::fs::read_to_string(prop_file) {
+            match ron::from_str::<MaterialProperties>(&prop_str) {
+                Ok(props) => {
+                    tracing::info!("- Material: '{}'", &id);
+                    loaded.insert_material(MaterialID::new(id), props);
+                }
+                Err(err) => {
+                    tracing::error!("Unable to read '{}' properties file: {:#?}", &id, err);
+                }
+            }
+        } else {
+            tracing::error!("Unable to read '{}' properties file.", &id);
+        }
+    }
+
+    fn process_pack(loaded: &mut LoadedMaterials, pack: &ContentPack) {
         let materials_path = pack.path.as_path().join("materials");
         if let Ok(materials_dir) = std::fs::read_dir(materials_path) {
             let material_metas: Vec<std::fs::DirEntry> = materials_dir
@@ -146,40 +302,15 @@ pub fn load_content(mut commands: Commands, _asset_server: Res<AssetServer>) {
 
             for material_meta in material_metas {
                 let material_path = material_meta.path();
-                let prop_file = material_path.join("properties.ron");
-
-                let name = material_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .expect("can't get material directory name");
-                let id = pack.id.clone() + ":" + name;
-
-                if let Ok(prop_str) = std::fs::read_to_string(prop_file) {
-                    match ron::from_str::<BlockProperties>(&prop_str) {
-                        Ok(props) => {
-                            tracing::info!("- Material: '{}'", &id);
-                            block_props.insert(MaterialID::new(id), props);
-                        }
-                        Err(err) => {
-                            tracing::error!("Unable to read '{}' properties file: {:?}", &id, err)
-                        }
-                    }
-                } else {
-                    tracing::error!("Unable to read '{}' properties file.", &id)
-                }
+                process_material(loaded, pack, &material_path);
             }
         }
     }
 
-    commands.insert_resource(LoadedContentPacks(packs));
-    commands.insert_resource(LoadedBlocks(block_props));
-}
+    for pack in &packs {
+        process_pack(&mut loaded, pack);
+    }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[repr(u8)]
-pub enum MatterState {
-    Plasma,
-    Gaseous,
-    Liquid,
-    Solid,
+    commands.insert_resource(LoadedContentPacks(packs));
+    commands.insert_resource(loaded);
 }

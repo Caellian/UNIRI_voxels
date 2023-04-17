@@ -1,12 +1,14 @@
-use crate::data::LoadedBlocks;
+use crate::data::{FaceProperties, LoadedMaterials};
 use crate::ext::{Convert, VecExt};
-use crate::world::block::Side;
 use crate::world::chunk::{ChunkInfo, ChunkStore, Mesher};
+use crate::world::material::Side;
 use crate::MaterialID;
 use bevy::prelude::*;
-use bevy::render::mesh::*;
+use bevy::render::mesh::{self, *};
 use indexmap::IndexSet;
 use std::hash::{Hash, Hasher};
+
+use super::chunk_material::ChunkMaterial;
 
 pub fn visible_chunk_sides(player_pos: Vec3, chunk_pos: Vec3) -> [Side; 3] {
     [
@@ -36,8 +38,9 @@ pub struct ChunkMesh {
 
 /// TODO: Meshing optimizations:
 /// - Runs for each side, can run once per axis
-pub fn greedy_mesh(blocks: &ChunkStore<MaterialID>, loaded: &LoadedBlocks) -> Mesh {
+pub fn greedy_mesh(blocks: &ChunkStore<MaterialID>, loaded: &LoadedMaterials) -> MeshBuilder {
     let mut mesh_builder = MeshBuilder::new();
+
     for side in Side::ALL {
         let mut ids_above = None;
         let max_depth = (side.axis().to_vec().convert() * blocks.size).sum();
@@ -114,49 +117,24 @@ pub fn greedy_mesh(blocks: &ChunkStore<MaterialID>, loaded: &LoadedBlocks) -> Me
                             visited[y as usize][x as usize] = true;
                         }
                     }
-
+                    /*
                     let color = blocks
                         .value_of_index(id)
-                        .and_then(|id| loaded.get(id).map(|props| props.color))
-                        .map(|c| c.as_rgba_f32())
-                        .unwrap_or([0.1, 0.3, 0.8, 1.0]);
+                        .and_then(|id| loaded.get(id).map(|props| props.base_color))
+                        .unwrap_or(Vec4::new(0.1, 0.3, 0.8, 1.0));
+                    */
 
-                    mesh_builder.push(Vertex {
-                        position: side.depth_pos(depth, x, y, blocks.size).to_array(),
-                        normal: side.normal().to_array(),
-                        uv: [0.0, 0.0],
-                        color,
-                    });
-                    mesh_builder.push(Vertex {
-                        position: side.depth_pos(depth, x + w, y, blocks.size).to_array(),
-                        normal: side.normal().to_array(),
-                        uv: [1.0, 0.0],
-                        color,
-                    });
-                    mesh_builder.push(Vertex {
-                        position: side.depth_pos(depth, x, y + h, blocks.size).to_array(),
-                        normal: side.normal().to_array(),
-                        uv: [0.0, 1.0],
-                        color,
-                    });
-                    mesh_builder.push(Vertex {
-                        position: side.depth_pos(depth, x + w, y, blocks.size).to_array(),
-                        normal: side.normal().to_array(),
-                        uv: [1.0, 0.0],
-                        color,
-                    });
-                    mesh_builder.push(Vertex {
-                        position: side.depth_pos(depth, x + w, y + h, blocks.size).to_array(),
-                        normal: [1.0, 1.0, 0.0],
-                        uv: [1.0, 1.0],
-                        color,
-                    });
-                    mesh_builder.push(Vertex {
-                        position: side.depth_pos(depth, x, y + h, blocks.size).to_array(),
-                        normal: [1.0, 1.0, 0.0],
-                        uv: [0.0, 1.0],
-                        color,
-                    });
+                    // id + side ---insert--> buffer
+                    // tex_id
+
+                    let corners = [
+                        side.depth_pos(blocks.size, depth, UVec2::new(x, y)),
+                        side.depth_pos(blocks.size, depth, UVec2::new(x + w, y)),
+                        side.depth_pos(blocks.size, depth, UVec2::new(x, y + h)),
+                        side.depth_pos(blocks.size, depth, UVec2::new(x + w, y + h)),
+                    ];
+
+                    mesh_builder.push_face(id, side, corners)
                 }
             }
 
@@ -164,7 +142,7 @@ pub fn greedy_mesh(blocks: &ChunkStore<MaterialID>, loaded: &LoadedBlocks) -> Me
         }
     }
 
-    mesh_builder.build()
+    mesh_builder
 }
 
 // TODO: Post terrain gen figure out optimal mesh vec capacity
@@ -200,31 +178,50 @@ fn is_block_face_visible(
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Vertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-    uv: [f32; 2],
-    color: [f32; 4],
+pub struct StagedVertex {
+    position: UVec3,
+    normal: Vec3,
+    uv: Vec2,
+    material_side: (u16, Side),
 }
-impl Eq for Vertex {}
-impl Hash for Vertex {
+impl Eq for StagedVertex {}
+impl Hash for StagedVertex {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // We don't care about correctness of handling floats for quickly
         // checking whether vertices match.
         unsafe {
-            let s: *const Vertex = self;
+            let s: *const StagedVertex = self;
             state.write(std::slice::from_raw_parts(
                 s as *const u8,
-                std::mem::size_of::<Vertex>(),
+                std::mem::size_of::<StagedVertex>(),
             ))
         }
     }
 }
 
-#[derive(Debug, Default, Clone)]
+const MISSING_VOXEL_FACE: FaceProperties = FaceProperties {
+    base_color: Vec4::new(0.86, 0.08, 0.24, 1.),
+    roughness: 0.8,
+    metallic: 0.2,
+    reflectance: 0.9,
+    base_texture: 0,
+    base_texture_uv: Vec2::new(0., 0.),
+    emissive_color: Vec4::new(0., 0., 0., 1.),
+};
+
+#[derive(Debug, Clone)]
 pub struct MeshBuilder {
-    vertices: IndexSet<Vertex, ahash::RandomState>,
+    vertices: IndexSet<StagedVertex, ahash::RandomState>,
     indices: Vec<u32>,
+}
+
+impl Default for MeshBuilder {
+    fn default() -> Self {
+        MeshBuilder {
+            vertices: IndexSet::with_capacity_and_hasher(64, ahash::RandomState::new()),
+            indices: Vec::with_capacity(128),
+        }
+    }
 }
 
 impl MeshBuilder {
@@ -232,61 +229,112 @@ impl MeshBuilder {
         MeshBuilder::default()
     }
 
-    pub fn push(&mut self, v: Vertex) {
+    pub fn push(&mut self, v: StagedVertex) {
         let i = self.vertices.insert_full(v).0;
         self.indices.push(i as u32);
     }
 
-    pub fn build(self) -> Mesh {
-        let mut m = Mesh::new(PrimitiveTopology::TriangleList);
+    pub fn push_face(&mut self, id: u16, side: Side, corners: [UVec3; 4]) {
+        self.push(StagedVertex {
+            position: corners[0],
+            normal: side.normal(),
+            uv: Vec2::new(0.0, 0.0),
+            material_side: (id, side),
+        });
+        self.push(StagedVertex {
+            position: corners[1],
+            normal: side.normal(),
+            uv: Vec2::new(1.0, 0.0),
+            material_side: (id, side),
+        });
+        self.push(StagedVertex {
+            position: corners[2],
+            normal: side.normal(),
+            uv: Vec2::new(0.0, 1.0),
+            material_side: (id, side),
+        });
+        self.push(StagedVertex {
+            position: corners[1],
+            normal: side.normal(),
+            uv: Vec2::new(1.0, 0.0),
+            material_side: (id, side),
+        });
+        self.push(StagedVertex {
+            position: corners[3],
+            normal: side.normal(),
+            uv: Vec2::new(1.0, 1.0),
+            material_side: (id, side),
+        });
+        self.push(StagedVertex {
+            position: corners[2],
+            normal: side.normal(),
+            uv: Vec2::new(0.0, 1.0),
+            material_side: (id, side),
+        });
+    }
+
+    pub fn build(
+        self,
+        chunk: &ChunkStore<MaterialID>,
+        materials: &LoadedMaterials,
+    ) -> (Mesh, Vec<FaceProperties>) {
+        let mut face_properties: IndexSet<&FaceProperties> =
+            IndexSet::with_capacity(self.vertices.len() / 8);
+        face_properties.insert(&MISSING_VOXEL_FACE);
 
         let mut positions = Vec::with_capacity(self.vertices.len());
         let mut normals = Vec::with_capacity(self.vertices.len());
         let mut uvs = Vec::with_capacity(self.vertices.len());
-        let mut colors = Vec::with_capacity(self.vertices.len());
+        let mut face_indices: Vec<u32> = Vec::with_capacity(self.vertices.len() / 8);
 
-        for Vertex {
+        for StagedVertex {
             position,
             normal,
             uv,
-            color,
-        } in self.vertices
+            material_side,
+        } in &self.vertices
         {
-            positions.push(position);
-            normals.push(normal);
-            uvs.push(uv);
-            colors.push(color);
+            positions.push(position.as_vec3().to_array());
+            normals.push(normal.to_array());
+            uvs.push(uv.to_array());
+
+            let id = chunk
+                .value_of_index(material_side.0)
+                .expect("invalid chunk storage value index");
+
+            if let Some(properties) = materials.properties.get(id) {
+                let key = match properties.faces.as_ref().unwrap() {
+                    crate::data::BlockFaces::Uniform { face } => face_properties.insert_full(face),
+                    crate::data::BlockFaces::Sided {
+                        face,
+                        face_override,
+                    } => {
+                        if let Some(f) = face_override.get(&material_side.1) {
+                            face_properties.insert_full(f)
+                        } else {
+                            face_properties.insert_full(face)
+                        }
+                    }
+                };
+                face_indices.push(key.0 as u32);
+            }
         }
+        face_properties.shrink_to_fit();
+        tracing::info!("Generated face properties: {:#?}", face_properties);
 
-        m.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        m.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        m.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        m.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-        m.set_indices(Some(Indices::U32(self.indices)));
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        mesh.insert_attribute(ChunkMaterial::ATTRIBUTE_FACE_INDEX, face_indices);
+        mesh.set_indices(Some(Indices::U32(self.indices)));
 
-        m
-    }
-}
-
-// TODO: (improvement) ambient occlusion
-pub fn rebuild_meshes(
-    mut commands: Commands,
-    blocks: Res<LoadedBlocks>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    query: Query<(Entity, &ChunkInfo, &ChunkStore<MaterialID>), Without<ChunkMesh>>,
-) {
-    for (e, chunk_info, chunk_blocks) in query.iter() {
-        if !chunk_blocks.is_empty() {
-            let mesh = match chunk_info.mesher {
-                Mesher::Greedy => greedy_mesh(chunk_blocks, blocks.as_ref()),
-            };
-
-            let mesh_handle = meshes.add(mesh);
-
-            commands
-                .entity(e)
-                .insert(ChunkMesh { dirty: false })
-                .insert(mesh_handle);
-        }
+        (
+            mesh,
+            face_properties
+                .into_iter()
+                .map(|props| props.clone())
+                .collect(),
+        )
     }
 }

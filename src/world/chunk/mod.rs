@@ -1,10 +1,11 @@
 use crate::ext::{Convert, VecExt};
-use crate::world::block::Side;
+use crate::world::material::Side;
 use crate::world::gen::TerrainGenerator;
 use crate::MaterialID;
 use bevy::prelude::*;
 
 pub mod chunk_material;
+pub mod mesh;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 #[repr(u8)]

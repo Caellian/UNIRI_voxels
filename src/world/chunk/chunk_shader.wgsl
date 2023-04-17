@@ -16,12 +16,12 @@ struct Vertex {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
     @location(2) uv: vec2<f32>,
-    @location(3) color: vec4<f32>,
+    @location(3) face_index: u32,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) blend_color: vec4<f32>,
+    @location(0) face_index: u32,
     @location(1) normal: vec3<f32>,
     @location(2) uv: vec2<f32>,
 };
@@ -31,7 +31,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
     out.clip_position = mesh_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
-    out.blend_color = vertex.color;
+    out.face_index = vertex.face_index;
     out.normal = vertex.normal;
     out.uv = vertex.uv;
 
@@ -39,12 +39,28 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 struct FragmentInput {
-    @location(0) blend_color: vec4<f32>,
+    @location(0) face_index: u32,
     @location(1) normal: vec3<f32>,
     @location(2) uv: vec2<f32>,
 };
 
+struct FaceData {
+    base_color: vec4<f32>,
+
+    base_texture: u32,
+    base_texture_uv: vec2<f32>,
+
+    emissive_color: vec4<f32>,
+
+    roughness: f32,
+    metallic: f32,
+    reflectance: f32,
+}
+
+@group(1) @binding(0)
+var<storage> face_data: array<FaceData>;
+
 @fragment
 fn fragment(input: FragmentInput) -> @location(0) vec4<f32> {
-    return input.blend_color;
+    return face_data[input.face_index].base_color;
 }

@@ -11,10 +11,11 @@ wgpu = "0.15"
 bevy = { version = "0.10", features = [] }
 bevy_common_assets = { version = "0.3", features = ["ron"] }
 
+clap = {version = "4.2", features = ["derive"]}
+
 # Dev
 dot_vox = "5.1"
 
-wasmtime = "7.0"
 texture_packer = "0.25"
 
 # Data
@@ -35,7 +36,7 @@ noise = "0.8"
 mlua = { version = "0.8", features = ["luau"] }
 
 # System
-dirs = "4.0"
+dirs = "5.0"
 
 # Logging & Errors
 tracing = { version = "0.1", features = ["release_max_level_info", "log"] }

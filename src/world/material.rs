@@ -1,6 +1,7 @@
 use crate::world::WorldAxis;
 use crate::{decl_id_type, Vec3};
 use bevy::prelude::*;
+use bevy::render::render_resource::ShaderType;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
 use std::string::ToString;
@@ -12,12 +13,6 @@ impl MaterialID {
     pub fn air() -> MaterialID {
         MaterialID("air".to_string())
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BlockProperties {
-    #[serde(deserialize_with = "crate::color::deserialize_hex_color")]
-    pub color: Color,
 }
 
 /// When visualizing, think of a cube and yourself as external observer.
@@ -142,18 +137,19 @@ impl Side {
         self.opposite().direction()
     }
 
-    pub fn depth_pos(self, depth: u32, x: u32, y: u32, chunk_size: UVec3) -> Vec3 {
-        let depth = depth as f32;
-        let x = x as f32;
-        let y = y as f32;
+    #[inline]
+    pub const fn depth_pos(self, size: UVec3, depth: u32, pos: UVec2) -> UVec3 {
+        let z = depth;
+        let x = pos.x;
+        let y = pos.y;
 
         match self {
-            Side::East => Vec3::new(x, y, chunk_size.z as f32 - depth),
-            Side::West => Vec3::new(chunk_size.x as f32 - x, y, depth),
-            Side::Top => Vec3::new(y, chunk_size.y as f32 - depth, x),
-            Side::Bottom => Vec3::new(chunk_size.x as f32 - y, depth, x),
-            Side::South => Vec3::new(depth, y, x),
-            Side::North => Vec3::new(chunk_size.x as f32 - depth, y, chunk_size.z as f32 - x),
+            Side::East => UVec3::new(x, y, size.z - z),
+            Side::West => UVec3::new(size.x - x, y, z),
+            Side::Top => UVec3::new(y, size.y - z, x),
+            Side::Bottom => UVec3::new(size.x - y, z, x),
+            Side::South => UVec3::new(z, y, x),
+            Side::North => UVec3::new(size.x - z, y, size.z - x),
         }
     }
 
@@ -178,41 +174,11 @@ pub enum Voxel {
 #[derive(Debug, Deserialize, Component)]
 pub struct SidedBlock(Side);
 
-/*
-#[derive(Deref)]
-pub struct MaterialRegistry(pub BTreeMap<MaterialID, Material>);
-
-impl Default for MaterialRegistry {
-    fn default() -> Self {
-        let blocks: Vec<PathBuf> = std::fs::read_dir("./blocks")
-            .unwrap()
-            .filter_map(|it| it.ok().map(|e| e.path()))
-            .collect();
-
-        let mut result = BTreeMap::new();
-        for path in blocks {
-            let block_str = std::fs::read_to_string(path).unwrap();
-            let mut material: Material = ron::from_str(&block_str).expect("unable to read block");
-
-            let id = path
-                .file_name()
-                .expect("no filename")
-                .to_str()
-                .unwrap()
-                .to_string();
-
-            material.id = MaterialID(id.clone());
-
-            result.insert(MaterialID(id), material);
-        }
-
-        MaterialRegistry(result)
-    }
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[repr(u8)]
+pub enum MatterState {
+    Plasma,
+    Gaseous,
+    Liquid,
+    Solid,
 }
-
-impl MaterialRegistry {
-    pub fn get_material(&self, id: &MaterialID) -> Option<&Material> {
-        self.0.get(id)
-    }
-}
-*/
