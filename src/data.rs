@@ -3,13 +3,12 @@ use crate::world::material::Side;
 use crate::MaterialID;
 use ahash::HashMap;
 use bevy::prelude::*;
-use bevy::render::render_resource::{ShaderType, StorageBuffer};
-use serde::{Deserialize, Serialize};
+use bevy::render::render_resource::ShaderType;
+use serde::Deserialize;
 use std::collections::btree_map::BTreeMap;
 use std::hash::Hash;
 use std::mem::size_of;
 use std::path::{Path, PathBuf};
-use wgpu::Face;
 
 static CONTENT_DIR: &str = "content";
 
@@ -196,50 +195,6 @@ impl LoadedMaterials {
                 },
             });
         }
-
-        /*
-        let buffer = &mut self.buffer.get_mut().face_data;
-
-        let mut face_positions = [0u32; 6];
-
-        #[inline]
-        fn push_face(buffer: &mut Vec<FaceProperties>, face: FaceProperties) -> usize {
-            buffer.push(face.clone());
-            let mut index = buffer.len() - 1;
-
-            // TODO: replace u32::MAX w/ GPU bottleneck
-            if index >= u32::MAX as usize {
-                tracing::error!("overfull face buffer while loading materials");
-                // Some voxel sides will render as MISSING_VOXEL_FACE
-                index = 0;
-            }
-
-            return index;
-        }
-
-        match faces {
-            BlockFaces::Uniform { face } => {
-                let index = push_face(&mut buffer, face.clone());
-                for side in Side::ALL {
-                    face_positions[side as usize] = index as u32;
-                }
-            }
-            BlockFaces::Sided {
-                face,
-                face_override,
-            } => {
-                let index = push_face(&mut buffer, face.clone());
-                for side in Side::ALL {
-                    face_positions[side as usize] = index as u32;
-                }
-
-                for (side, face) in face_override {
-                    let index = push_face(&mut buffer, face.clone());
-                    face_positions[*side as usize] = index as u32;
-                }
-            }
-        }
-        */
 
         self.properties.insert(id, props);
         //self.face_positions.insert(id, face_positions);

@@ -1,6 +1,6 @@
 use crate::ext::{Convert, VecExt};
-use crate::world::material::Side;
 use crate::world::gen::TerrainGenerator;
+use crate::world::material::Side;
 use crate::MaterialID;
 use bevy::prelude::*;
 
@@ -21,7 +21,7 @@ pub struct ChunkInfo {
 }
 
 pub type ChunkValueIndex = u16;
-pub const MAX_CHUNK_VALUES: usize = (ChunkValueIndex::MAX - 1) as usize;
+pub const MAX_CHUNK_VALUES: usize = ChunkValueIndex::MAX as usize;
 
 #[derive(Debug, Default, Component)]
 pub struct ChunkStore<T: PartialEq> {
@@ -68,11 +68,12 @@ impl<T: PartialEq> ChunkStore<T> {
             + pos.y as usize * self.size.x as usize * self.size.z as usize
     }
 
-    fn insert_key(&mut self, key: T) {
+    pub fn insert_key(&mut self, key: T) -> u16 {
         if self.values.len() + 1 > MAX_CHUNK_VALUES {
             panic!("overfull chunk palette");
         }
-        self.values.push(key)
+        self.values.push(key);
+        self.values.len() as u16
     }
 
     pub fn get_side_slice_pos(&self, side: Side, depth: u32, x: u32, y: u32) -> u16 {
@@ -151,7 +152,14 @@ impl<T: PartialEq> ChunkStore<T> {
         }
     }
 
-    pub fn set_value(&mut self, pos: UVec3, value: Option<T>) {
+    pub fn set_pos_id(&mut self, pos: UVec3, value: u16) {
+        let pos_i = self.get_position_index(pos);
+        if let Some(pos) = self.content.get_mut(pos_i) {
+            *pos = value;
+        }
+    }
+
+    pub fn set_pos_value(&mut self, pos: UVec3, value: Option<T>) {
         if pos.x >= self.size.x || pos.y >= self.size.y || pos.z >= self.size.z {
             self.as_ref();
             // TODO: resize chunk
@@ -165,13 +173,10 @@ impl<T: PartialEq> ChunkStore<T> {
             })
             .unwrap_or(0);
 
-        let pos_i = self.get_position_index(pos);
-        if let Some(pos) = self.content.get_mut(pos_i) {
-            *pos = i;
-        }
+        self.set_pos_id(pos, i);
     }
 
-    pub fn set_or_clone_value(&mut self, pos: UVec3, value: Option<&T>)
+    pub fn set_or_clone_pos_value(&mut self, pos: UVec3, value: Option<&T>)
     where
         T: Clone,
     {
@@ -241,10 +246,10 @@ impl Chunk {
     pub fn new_gen<G: TerrainGenerator<MaterialID>>(
         pos: Vec3,
         size: UVec3,
-        generator: &mut G,
+        generator: &G,
     ) -> Chunk {
         let mut result = Chunk::new(pos, size);
-        generator.generate(&mut result.blocks);
+        generator.generate(pos, &mut result.blocks);
         result
     }
 }

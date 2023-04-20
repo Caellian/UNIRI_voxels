@@ -1,7 +1,6 @@
 use crate::world::WorldAxis;
 use crate::{decl_id_type, Vec3};
 use bevy::prelude::*;
-use bevy::render::render_resource::ShaderType;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Display};
 use std::string::ToString;
@@ -10,8 +9,8 @@ decl_id_type!(MaterialID);
 
 impl MaterialID {
     #[must_use]
-    pub fn air() -> MaterialID {
-        MaterialID("air".to_string())
+    pub const fn air() -> MaterialID {
+        MaterialID::Static("air")
     }
 }
 
@@ -174,6 +173,7 @@ pub enum Voxel {
 #[derive(Debug, Deserialize, Component)]
 pub struct SidedBlock(Side);
 
+/*
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum MatterState {
@@ -182,3 +182,4 @@ pub enum MatterState {
     Liquid,
     Solid,
 }
+*/

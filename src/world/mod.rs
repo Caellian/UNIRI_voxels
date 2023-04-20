@@ -10,6 +10,7 @@ use rand::RngCore;
 use self::chunk::mesh::greedy_mesh;
 use self::chunk::ChunkStore;
 use self::gen::Fill;
+use self::gen::old::SimplexChunkGen;
 use self::material::MaterialID;
 
 pub mod chunk;
@@ -94,29 +95,19 @@ pub fn spawn_world(
         });
     */
 
-    let stone = MaterialID::new("common:stone");
     let grass = MaterialID::new("common:grass");
 
-    let mut fill = Fill { material: stone };
+    let gen = SimplexChunkGen { seed: 34356424, dirt_height: 3 };
 
     let ch = {
-        let mut ch = Chunk::new_gen(Vec3::new(0.0, 0.0, 0.0), UVec3::new(16, 16, 16), &mut fill);
+        let mut ch = Chunk::new_gen(Vec3::new(0.0, 0.0, 0.0), UVec3::new(16, 16, 16), &gen);
 
         for z in 0..16 {
             for y in 0..16 {
                 for x in 0..16 {
                     if x == y && y == z {
-                        ch.blocks.set_value(UVec3::new(x, y, z), None);
+                        ch.blocks.set_pos_value(UVec3::new(x, y, z), None);
                     }
-                }
-            }
-        }
-
-        for z in 0..16 {
-            for y in 7..9 {
-                for x in 7..9 {
-                    ch.blocks
-                        .set_or_clone_value(UVec3::new(x, y, z), Some(&grass));
                 }
             }
         }
@@ -148,23 +139,29 @@ pub fn spawn_world(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             color: Color::hex("cceecc").unwrap(),
-            illuminance: 800.,
+            illuminance: 10000.,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, 20., 0., 0.)),
+        transform: Transform {
+            translation: Vec3::new(0., 1000.0, 0.),
+            rotation: Quat::from_euler(EulerRot::XYZ, 20., 0., 0.),
+            ..default()
+        },
         ..default()
     });
 
-    // commands.spawn(PointLightBundle {
-    //     point_light: PointLight {
-    //         intensity: 1500.0,
-    //         shadows_enabled: true,
-    //         ..default()
-    //     },
-    //     transform: Transform::from_xyz(-4.0, 8.0, 4.0),
-    //     ..default()
-    // });
+    /*
+        commands.spawn(PointLightBundle {
+            point_light: PointLight {
+                intensity: 1500.0,
+                shadows_enabled: true,
+                ..default()
+            },
+            transform: Transform::from_xyz(-4.0, 8.0, 4.0),
+            ..default()
+        });
+    */
 }
 
 pub fn spawn_chunk_markers(

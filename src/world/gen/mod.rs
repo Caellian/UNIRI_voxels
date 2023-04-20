@@ -1,11 +1,11 @@
-pub mod script;
+pub mod old;
 
 use crate::world::chunk::ChunkStore;
 use crate::MaterialID;
 use bevy::prelude::*;
 
 pub trait TerrainGenerator<T: PartialEq> {
-    fn generate(&mut self, blocks: &mut ChunkStore<T>);
+    fn generate(&self, pos: Vec3, blocks: &mut ChunkStore<T>);
 }
 
 pub enum WriteMode {
@@ -22,11 +22,12 @@ pub struct Fill {
 }
 
 impl TerrainGenerator<MaterialID> for Fill {
-    fn generate(&mut self, blocks: &mut ChunkStore<MaterialID>) {
+    fn generate(&self, _pos: Vec3, blocks: &mut ChunkStore<MaterialID>) {
+        let id = blocks.insert_key(self.material.clone());
         for y in 0..(blocks.size.y) {
             for x in 0..(blocks.size.x) {
                 for z in 0..(blocks.size.z) {
-                    blocks.set_or_clone_value(UVec3::new(x, y, z), Some(&self.material))
+                    blocks.set_pos_id(UVec3::new(x, y, z), id)
                 }
             }
         }

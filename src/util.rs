@@ -1,14 +1,60 @@
 #[macro_export]
 macro_rules! decl_id_type {
     ($name: ident) => {
-        #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
-        #[serde(transparent)]
-        #[repr(transparent)]
-        pub struct $name(String);
+        #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+        #[serde(untagged)]
+        pub enum $name {
+            Dynamic(String),
+            Static(&'static str),
+        }
 
         impl $name {
+            #[must_use]
             pub fn new(id: impl AsRef<str>) -> $name {
-                $name(id.as_ref().to_string())
+                $name::Dynamic(id.as_ref().to_string())
+            }
+
+            #[must_use]
+            pub const fn new_static(id: &'static str) -> $name {
+                $name::Static(id)
+            }
+        }
+
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                match self {
+                    $name::Dynamic(it) => it.as_ref(),
+                    $name::Static(it) => it,
+                }
+            }
+        }
+
+        impl PartialEq for $name {
+            fn eq(&self, other: &Self) -> bool {
+                self.as_ref() == other.as_ref()
+            }
+        }
+        impl Eq for $name {}
+        impl PartialOrd for $name {
+            fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+                self.as_ref().partial_cmp(other.as_ref())
+            }
+        }
+        impl Ord for $name {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                self.as_ref().cmp(other.as_ref())
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+                f.write_str(self.as_ref())
+            }
+        }
+
+        impl std::hash::Hash for $name {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                self.as_ref().hash(state)
             }
         }
 
@@ -16,7 +62,7 @@ macro_rules! decl_id_type {
             type Target = str;
 
             fn deref(&self) -> &Self::Target {
-                self.0.as_ref()
+                self.as_ref()
             }
         }
     };

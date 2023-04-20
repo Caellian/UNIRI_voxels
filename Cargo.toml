@@ -47,6 +47,13 @@ anyhow = "1.0"
 # Util
 derive_more = "0.99"
 
+# https://github.com/johnthagen/min-sized-rust
+[profile.release]
+strip = true
+#opt-level = "s"
+lto = true
+#codegen-units = 1
+
 [features]
 default = ["dev"]
 dev = ["bevy/dynamic_linking"]

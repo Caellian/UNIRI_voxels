@@ -317,6 +317,8 @@ impl MeshBuilder {
                     }
                 };
                 face_indices.push(key.0 as u32);
+            } else {
+                panic!("unable to get material properties for id ({})", id);
             }
         }
         face_properties.shrink_to_fit();

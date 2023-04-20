@@ -76,7 +76,7 @@ async fn load_vox<'a, 'b>(
         for vox in model.voxels.iter() {
             // let material_id = BlockID(format!("{}_material_{}", &id.0, vox.i));
 
-            blocks.set_or_clone_value(
+            blocks.set_or_clone_pos_value(
                 UVec3::new(vox.x as u32, vox.y as u32, vox.z as u32),
                 Some(&Voxel::Color(colors[&(vox.i as usize)].clone())),
             );
