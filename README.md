@@ -1,52 +1,7 @@
-## Description
+# Završni rad
 
-A voxel game with simple and less proprietary software stack.
+Dokumentacija: [PDF](https://raw.githubusercontent.com/Caellian/UNIRI_voxels/pdf/main.pdf)
 
-## Development roadmap
-- [x] Freefly Camera
-  - [x] Keyboard and mouse navigation
-  - [x] Mouse Capture
-- [x] Chunk rendering
-  - [x] Write array chunk code
-  - [x] Render a single block chunk
-  - [x] Build a chunk using a start system
-- [ ] Chunk interacton
-  - [ ] Add voxel breaking
-    - [ ] Use enum with id support for interaction
-  - [ ] Add voxel placement
-    - [ ] Add initial voxel selection
-    - [ ] Figure out UI and display selected
-- [ ] Player inventory
-  - [ ] Initial belt
-- [x] Load vox files
-  - [ ] Figure out palette handling
-  - [ ] Spawn at arbitrary location
-- [ ] Rendering chunk multiple times in a grid
-- [ ] Generating chunk data
-  - [ ] Inserting chunk pos into chunk gen
-  - [ ] Add state to chunk gen
-  - [ ] Add object insertions to fix trees
-  - [ ] Make all generation insertions
-    - [ ] Add a way to group gen features (e.g. "nature_gen")
-  - [ ] Add regions
-    - [ ] Add structures
-- [ ] Character
-  - [ ] Belt - for being able to switch between multiple items
-  - [ ] Material Cube - compressed storage container for a single material
-  - [ ] Matter Cube - compressed storage container for all materials
-  - [ ] Backpack - for carrying items around
-    - finite capacity
-    - can store material and matter cubes
-- [ ] Tools
-  - [ ] Pickaxe - appropriate tool for early survival
-  - [ ] Material Manipulator - tool for manipulating materials
-    - [ ] Material placement
-      - modes:
-        - [ ] AABB block
-        - [ ] slope
-        - [ ] stairs
-    - [ ] Mining Extension
-      - slot extension
-  - [ ] Building Planner - tool for planning large construction
-    - [ ] can leave a schematic behind to be constructed by Material Manipulator 
-    - late game
+## Licenca
+
+Sadržaj je u vlasništvu [Fakulteta informatike i digitalnih tehnologija](https://inf.uniri.hr).
