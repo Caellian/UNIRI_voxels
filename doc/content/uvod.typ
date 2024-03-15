@@ -11,7 +11,18 @@
   - Rendgenska tomografija
   - Elektronski mikroskopi
     - (engl. _Transmission Electron Microscopy_, TEM) i (engl. _Scanning Transmission Electron Microscopy_, STEM)
+  - DICOM format
 - Geoprostorna analiza
 - Računalne igrice
+
+== Komercijalni primjeri
+
+- C4, by Terathon http://www.terathon.com/
+  - discontinued
+- https://voxelfarm.com/index.html
+- https://gareth.pw/web/picavoxel/
+- Euclideon
+  - Koristi point cloud mislim 
+  - claim: "Ne koristi GPU pipeline"
 
 #pagebreak()

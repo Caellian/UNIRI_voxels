@@ -6,6 +6,7 @@
 #include "./content/strukture.typ"
 #include "./content/prijevremeno.typ"
 #include "./content/realno_vrijeme.typ"
+#include "./content/animacije.typ"
 #include "./content/usporedba.typ"
 #include "./content/prakticni.typ"
 #include "./content/zakljucak.typ"
