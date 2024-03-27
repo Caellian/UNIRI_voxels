@@ -1,21 +1,18 @@
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
 use bevy::render::mesh::{MeshVertexAttribute, MeshVertexBufferLayout};
 use bevy::render::render_resource::{
     AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
 };
 use wgpu::VertexFormat;
 
-use crate::data::FaceProperties;
+use crate::{data::FaceProperties, util};
 
 /// The shader handle for `"parallax_map.wgsl"`.
 #[allow(clippy::unreadable_literal)]
-pub const CHUNK_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9592100656503623734);
+pub const CHUNK_SHADER_HANDLE: Handle<Shader> = util::weak_str_handle("chunk_shader");
 
-#[derive(Debug, Clone, AsBindGroup, TypeUuid)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e2"]
+#[derive(Debug, Asset, TypePath, AsBindGroup, Clone)]
 pub struct ChunkMaterial {
     pub alpha_mode: AlphaMode,
     pub depth_bias: f32,
@@ -42,7 +39,7 @@ impl ChunkMaterial {
 impl Material for ChunkMaterial {
     #[cfg(not(feature = "debug"))]
     fn vertex_shader() -> ShaderRef {
-        CHUNK_SHADER_HANDLE.typed::<Shader>().into()
+        CHUNK_SHADER_HANDLE.into()
     }
     #[cfg(feature = "debug")]
     fn vertex_shader() -> ShaderRef {
@@ -51,7 +48,7 @@ impl Material for ChunkMaterial {
 
     #[cfg(not(feature = "debug"))]
     fn fragment_shader() -> ShaderRef {
-        CHUNK_SHADER_HANDLE.typed::<Shader>().into()
+        CHUNK_SHADER_HANDLE.into()
     }
     #[cfg(feature = "debug")]
     fn fragment_shader() -> ShaderRef {
@@ -79,5 +76,29 @@ impl Material for ChunkMaterial {
             Self::ATTRIBUTE_FACE_INDEX.at_shader_location(3),
         ])?];
         Ok(())
+    }
+
+    fn opaque_render_method(&self) -> bevy::pbr::OpaqueRendererMethod {
+        bevy::pbr::OpaqueRendererMethod::Forward
+    }
+
+    fn reads_view_transmission_texture(&self) -> bool {
+        false
+    }
+
+    fn prepass_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    fn deferred_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
     }
 }

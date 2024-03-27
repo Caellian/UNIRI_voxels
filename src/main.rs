@@ -11,7 +11,7 @@ pub mod world;
 
 use crate::world::chunk::chunk_material::{ChunkMaterial, CHUNK_SHADER_HANDLE};
 use crate::world::material::MaterialID;
-use crate::world::vox::{VoxLoader, VoxelData};
+use crate::world::vox::{Vox, VoxLoader};
 use bevy::asset::load_internal_asset;
 use bevy::prelude::*;
 
@@ -43,18 +43,18 @@ fn main() {
     );
     // TODO: register shader type
 
-    app.add_plugin(FlyCameraPlugin)
-        .add_plugin(MaterialPlugin::<ChunkMaterial>::default())
-        .add_asset::<VoxelData>()
-        .add_asset_loader(VoxLoader)
-        .add_startup_system(data::load_content)
-        .add_startup_system(entity::player::spawn_player)
-        .add_startup_system(world::spawn_world)
+    app.add_plugins(FlyCameraPlugin)
+        .add_plugins(MaterialPlugin::<ChunkMaterial>::default())
+        .register_asset_loader(VoxLoader)
+        .init_asset::<Vox>()
+        .add_systems(Startup, data::load_content)
+        .add_systems(Startup, entity::player::spawn_player)
+        .add_systems(Startup, world::spawn_world)
         //.add_startup_system(world::spawn_chunk_markers)
         //.add_startup_system(ui::debug::setup)
         //.add_system(world::mesh::rebuild_meshes)
         //.add_startup_system(build_triangle)
-        .add_system(world::build_fresh_chunks);
+        .add_systems(Update, world::build_fresh_chunks);
     //.add_system(world::track_player_chunk)
 
     app.run();

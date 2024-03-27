@@ -3,13 +3,11 @@ use crate::entity::player::PlayerChunk;
 use crate::world::chunk::chunk_material::ChunkMaterial;
 use crate::world::chunk::mesh::ChunkMesh;
 use crate::world::chunk::{Chunk, ChunkInfo, Mesher};
-use bevy::prelude::shape::Cube;
 use bevy::prelude::*;
 use rand::RngCore;
 
 use self::chunk::mesh::greedy_mesh;
 use self::chunk::ChunkStore;
-use self::gen::Fill;
 use self::gen::old::SimplexChunkGen;
 use self::material::MaterialID;
 
@@ -64,7 +62,6 @@ impl Default for WorldInfo {
 #[derive(Debug, Bundle)]
 pub struct World {
     info: WorldInfo,
-    #[bundle]
     spatial: SpatialBundle,
 }
 
@@ -74,9 +71,9 @@ impl Default for World {
             info: WorldInfo::default(),
             spatial: SpatialBundle {
                 visibility: Visibility::Visible,
-                computed: ComputedVisibility::HIDDEN,
                 transform: Transform::IDENTITY,
                 global_transform: GlobalTransform::IDENTITY,
+                ..default()
             },
         }
     }
@@ -84,7 +81,7 @@ impl Default for World {
 
 pub fn spawn_world(
     mut commands: Commands,
-    mut materials: ResMut<Assets<ChunkMaterial>>,
+    mut _materials: ResMut<Assets<ChunkMaterial>>,
     _asset_server: Res<AssetServer>,
 ) {
     /*
@@ -97,7 +94,10 @@ pub fn spawn_world(
 
     let grass = MaterialID::new("common:grass");
 
-    let gen = SimplexChunkGen { seed: 34356424, dirt_height: 3 };
+    let gen = SimplexChunkGen {
+        seed: 34356424,
+        dirt_height: 3,
+    };
 
     let ch = {
         let mut ch = Chunk::new_gen(Vec3::new(0.0, 0.0, 0.0), UVec3::new(16, 16, 16), &gen);
@@ -169,8 +169,11 @@ pub fn spawn_chunk_markers(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let corner = meshes.add(Mesh::from(Cube::new(0.5)));
-    let corner_mat = materials.add(Color::GREEN.into());
+    let corner = meshes.add(Mesh::from(Cuboid::new(0.5, 0.5, 0.5)));
+    let corner_mat = materials.add(StandardMaterial {
+        base_color: Color::GREEN,
+        ..default()
+    });
 
     commands.spawn(PbrBundle {
         mesh: corner.clone(),

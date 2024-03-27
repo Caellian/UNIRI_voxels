@@ -44,12 +44,12 @@ impl Default for FlyCamera {
             pitch: 0.0,
             yaw: 0.0,
             velocity: Vec3::ZERO,
-            key_forward: KeyCode::W,
-            key_backward: KeyCode::S,
-            key_left: KeyCode::A,
-            key_right: KeyCode::D,
+            key_forward: KeyCode::KeyW,
+            key_backward: KeyCode::KeyS,
+            key_left: KeyCode::KeyA,
+            key_right: KeyCode::KeyD,
             key_up: KeyCode::Space,
-            key_down: KeyCode::LShift,
+            key_down: KeyCode::ShiftLeft,
             enabled: true,
         }
     }
@@ -61,7 +61,7 @@ fn forward_vector(rotation: &Quat) -> Vec3 {
 
 fn forward_walk_vector(rotation: &Quat) -> Vec3 {
     let f = forward_vector(rotation);
-    
+
     Vec3::new(f.x, 0.0, f.z).normalize()
 }
 
@@ -72,7 +72,7 @@ fn strafe_vector(rotation: &Quat) -> Vec3 {
         .normalize()
 }
 
-pub fn movement_axis(input: &Res<Input<KeyCode>>, plus: KeyCode, minus: KeyCode) -> f32 {
+pub fn movement_axis(input: &Res<ButtonInput<KeyCode>>, plus: KeyCode, minus: KeyCode) -> f32 {
     let mut axis = 0.0;
     if input.pressed(plus) {
         axis += 1.0;
@@ -85,7 +85,7 @@ pub fn movement_axis(input: &Res<Input<KeyCode>>, plus: KeyCode, minus: KeyCode)
 
 fn camera_movement_system(
     time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut FlyCamera, &mut Transform)>,
 ) {
     for (mut options, mut transform) in query.iter_mut() {
@@ -143,7 +143,7 @@ fn mouse_motion_system(
     mut query: Query<(&mut FlyCamera, &mut Transform)>,
 ) {
     let mut delta: Vec2 = Vec2::ZERO;
-    for event in mouse_motion_event_reader.iter() {
+    for event in mouse_motion_event_reader.read() {
         delta += event.delta;
     }
     if delta.is_nan() {
@@ -170,8 +170,8 @@ fn mouse_motion_system(
 
 fn cursor_grab_system(
     mut window: Query<&mut Window, With<PrimaryWindow>>,
-    button: Res<Input<MouseButton>>,
-    key: Res<Input<KeyCode>>,
+    button: Res<ButtonInput<MouseButton>>,
+    key: Res<ButtonInput<KeyCode>>,
     mut camera: Query<&mut FlyCamera>,
 ) {
     let mut window = window
@@ -183,14 +183,14 @@ fn cursor_grab_system(
         window.cursor.visible = false;
         window.cursor.grab_mode = CursorGrabMode::Locked;
         window.set_cursor_position(Some(center));
-        camera.for_each_mut(|mut c| c.enabled = true);
+        camera.iter_mut().for_each(|mut c| c.enabled = true);
     }
 
     if key.just_pressed(KeyCode::Escape) && window.cursor.grab_mode == CursorGrabMode::Locked {
         window.cursor.grab_mode = CursorGrabMode::None;
         window.set_cursor_position(Some(center));
         window.cursor.visible = true;
-        camera.for_each_mut(|mut c| c.enabled = false);
+        camera.iter_mut().for_each(|mut c| c.enabled = false);
     }
 }
 
@@ -198,8 +198,8 @@ pub struct FlyCameraPlugin;
 
 impl Plugin for FlyCameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(camera_movement_system)
-            .add_system(mouse_motion_system)
-            .add_system(cursor_grab_system);
+        app.add_systems(Update, camera_movement_system)
+            .add_systems(Update, mouse_motion_system)
+            .add_systems(Update, cursor_grab_system);
     }
 }

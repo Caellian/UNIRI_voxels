@@ -224,7 +224,6 @@ impl<T: PartialEq> ChunkStore<T> {
 pub struct Chunk {
     pub info: ChunkInfo,
     pub blocks: ChunkStore<MaterialID>,
-    #[bundle]
     pub spatial: SpatialBundle,
 }
 

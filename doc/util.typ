@@ -16,4 +16,12 @@
 
 #let hr-date-format = (date) => [#date.day(). #hr-month-name(date.month()) #date.year().]
 
+#let locale-date-format = (locale, date) => {
+  if locale == "hr" {
+    return hr-date-format(date)
+  } else {
+    panic("unhandled locale-date-format locale: " + locale)
+  }
+}
+
 #let add-more = box(fill: red, inset: (x: 2pt), outset: (y: 2pt), text(weight: "bold", fill: white)[DODAJ SADRŽAJ])

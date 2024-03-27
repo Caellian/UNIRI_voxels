@@ -1,10 +1,10 @@
 use crate::data::{FaceProperties, LoadedMaterials};
 use crate::ext::{Convert, VecExt};
-use crate::world::chunk::{ChunkInfo, ChunkStore, Mesher};
+use crate::world::chunk::ChunkStore;
 use crate::world::material::Side;
 use crate::MaterialID;
-use bevy::prelude::*;
-use bevy::render::mesh::{self, *};
+use bevy::render::mesh::*;
+use bevy::{prelude::*, render::render_asset::RenderAssetUsages};
 use indexmap::IndexSet;
 use std::hash::{Hash, Hasher};
 
@@ -148,8 +148,8 @@ pub fn greedy_mesh(blocks: &ChunkStore<MaterialID>, loaded: &LoadedMaterials) ->
 // TODO: Post terrain gen figure out optimal mesh vec capacity
 #[inline(always)] // avoids jumps in greedy meshing
 fn is_block_face_visible(
-    visited: &Vec<Vec<bool>>,
-    ids: &Vec<Vec<u16>>,
+    visited: &[Vec<bool>],
+    ids: &[Vec<u16>],
     above: Option<&Vec<Vec<u16>>>,
     x: u32,
     y: u32,
@@ -324,19 +324,13 @@ impl MeshBuilder {
         face_properties.shrink_to_fit();
         tracing::info!("Generated face properties: {:#?}", face_properties);
 
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
         mesh.insert_attribute(ChunkMaterial::ATTRIBUTE_FACE_INDEX, face_indices);
-        mesh.set_indices(Some(Indices::U32(self.indices)));
+        mesh.insert_indices(Indices::U32(self.indices));
 
-        (
-            mesh,
-            face_properties
-                .into_iter()
-                .map(|props| props.clone())
-                .collect(),
-        )
+        (mesh, face_properties.into_iter().cloned().collect())
     }
 }

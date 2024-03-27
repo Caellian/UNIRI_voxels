@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-pub mod debug;
 pub mod hud;
 pub mod main_menu;
 

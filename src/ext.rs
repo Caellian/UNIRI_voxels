@@ -55,7 +55,6 @@ impl VecExt<u32> for UVec3 {
             WorldAxis::X => Some(self.x),
             WorldAxis::Y => Some(self.y),
             WorldAxis::Z => Some(self.z),
-            _ => None,
         }
     }
 
@@ -72,7 +71,6 @@ impl VecExt<f32> for Vec3 {
             WorldAxis::X => Some(self.x),
             WorldAxis::Y => Some(self.y),
             WorldAxis::Z => Some(self.z),
-            _ => None,
         }
     }
 

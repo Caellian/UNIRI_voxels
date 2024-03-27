@@ -1,6 +1,17 @@
-#import "template.typ": template
+#import "template.typ": config
 
-#show: template
+#show: config(
+  [Završni rad],
+  [Metode rasterizacije volumetrijskih struktura u računalnoj grafici],
+  [Tin Švagelj],
+  attributions: [
+    *Mentor:* doc. dr. sc., Miran Pobar
+  ],
+  inserts: [
+    #include "problem.typ"
+    #include "summary.typ"
+  ]
+)
 
 #include "./content/uvod.typ"
 #include "./content/strukture.typ"

@@ -2,10 +2,8 @@ use crate::error::ResourceError;
 use crate::ext::Convert;
 use crate::world::chunk::ChunkStore;
 use ahash::{HashMap, HashMapExt};
-use anyhow::Error;
-use bevy::asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset};
+use bevy::asset::{AssetLoader, AsyncReadExt, BoxedFuture, LoadContext};
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
 use dot_vox::DotVoxData;
 
 use super::material::Voxel;
@@ -13,11 +11,16 @@ use super::material::Voxel;
 pub struct VoxLoader;
 
 impl AssetLoader for VoxLoader {
+    type Asset = Vox;
+    type Settings = ();
+    type Error = ResourceError;
+
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
+        reader: &'a mut bevy::asset::io::Reader,
+        _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, anyhow::Result<(), Error>> {
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         let name = load_context
             .path()
             .file_name()
@@ -25,7 +28,7 @@ impl AssetLoader for VoxLoader {
             .to_str()
             .expect("bad file name")
             .to_string();
-        Box::pin(async move { Ok(load_vox(bytes, load_context, name).await?) })
+        Box::pin(async move { load_vox(reader, load_context, name).await })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -34,18 +37,22 @@ impl AssetLoader for VoxLoader {
 }
 
 async fn load_vox<'a, 'b>(
-    bytes: &'a [u8],
-    load_context: &'a mut LoadContext<'b>,
+    bytes: &'a mut bevy::asset::io::Reader<'a>,
+    _load_context: &'a mut LoadContext<'b>,
     name: impl AsRef<str>,
-) -> Result<(), ResourceError> {
+) -> Result<Vox, ResourceError> {
     let _name = name.as_ref().replace(' ', "_").to_lowercase();
 
-    let data: DotVoxData = match dot_vox::load_bytes(bytes) {
+    let mut buffer: Vec<u8> = Vec::new();
+    bytes.read_to_end(&mut buffer).await?;
+    let data: DotVoxData = match dot_vox::load_bytes(&buffer) {
         Ok(d) => d,
         Err(e) => {
             return Err(ResourceError::Vox(e));
         }
     };
+
+    let mut models = Vec::with_capacity(data.models.len());
 
     let mut color_use: Vec<usize> = Vec::new();
 
@@ -69,7 +76,7 @@ async fn load_vox<'a, 'b>(
     };
     tracing::info!("{:?}", colors);
 
-    for (i, model) in data.models.iter().enumerate() {
+    for (_i, model) in data.models.iter().enumerate() {
         // let id = BlockID(format!("runtime:{}_model_{}", name, i));
 
         let mut blocks = ChunkStore::new(UVec3::new(model.size.x, model.size.y, model.size.z));
@@ -78,27 +85,21 @@ async fn load_vox<'a, 'b>(
 
             blocks.set_or_clone_pos_value(
                 UVec3::new(vox.x as u32, vox.y as u32, vox.z as u32),
-                Some(&Voxel::Color(colors[&(vox.i as usize)].clone())),
+                Some(&Voxel::Color(colors[&(vox.i as usize)])),
             );
         }
-        let model = VoxelData::new(blocks);
 
-        let model_name = "model_".to_owned() + &i.to_string();
-        tracing::info!("Loaded vox model: {}", &model_name);
-        load_context.set_default_asset(LoadedAsset::new(model));
+        models.push(blocks);
+
+        // let model_name = format!("{}_{}", name, i);
+        // tracing::info!("Loaded vox model: {}", &model_name);
+        //load_context.add_labeled_asset(model_name, blocks);
     }
 
-    Ok(())
+    Ok(Vox { models })
 }
 
-#[derive(Debug, Clone, TypeUuid, Bundle)]
-#[uuid = "39cadc56-aa9c-4543-8640-a018b74b5052"]
-pub struct VoxelData {
-    pub value: ChunkStore<Voxel>,
-}
-
-impl VoxelData {
-    pub fn new(blocks: ChunkStore<Voxel>) -> Self {
-        VoxelData { value: blocks }
-    }
+#[derive(Debug, Clone, TypePath, Asset)]
+pub struct Vox {
+    pub models: Vec<ChunkStore<Voxel>>,
 }

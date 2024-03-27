@@ -37,7 +37,7 @@ macro_rules! decl_id_type {
         impl Eq for $name {}
         impl PartialOrd for $name {
             fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
-                self.as_ref().partial_cmp(other.as_ref())
+                Some(self.cmp(other))
             }
         }
         impl Ord for $name {
@@ -66,4 +66,32 @@ macro_rules! decl_id_type {
             }
         }
     };
+}
+
+pub const fn weak_str_handle<T>(value: &str) -> bevy::asset::Handle<T>
+where
+    T: bevy::asset::Asset,
+{
+    let mut bytes = 0;
+
+    let mut i = 0;
+    loop {
+        let c = value.as_bytes()[i];
+        let mut j = 0u8;
+        loop {
+            bytes ^= (c as u128)
+                .wrapping_shl(i as u32)
+                .wrapping_add((j as u128 + 1).wrapping_mul(i as u128 + 1));
+            j += 1;
+            if j == 16 {
+                break;
+            }
+        }
+        i += 1;
+        if value.len() <= i {
+            break;
+        }
+    }
+
+    bevy::asset::Handle::weak_from_u128(bytes)
 }

@@ -24,7 +24,6 @@ pub struct Player {
     pub chunk: PlayerChunk,
 
     pub fly_cam: FlyCamera,
-    #[bundle]
     pub camera: Camera3dBundle,
 }
 
