@@ -1,6 +1,6 @@
-use crate::error::ResourceError;
-use crate::ext::Convert;
+use crate::{convert::Convert, world::chunk::SizedGridMut};
 use crate::world::chunk::ChunkStore;
+use crate::{error::ResourceError, world::chunk::SizedGrid as _};
 use ahash::{HashMap, HashMapExt};
 use bevy::asset::{AssetLoader, AsyncReadExt, BoxedFuture, LoadContext};
 use bevy::prelude::*;

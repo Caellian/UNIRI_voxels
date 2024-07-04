@@ -4,6 +4,8 @@ use crate::world::chunk::ChunkStore;
 use crate::MaterialID;
 use bevy::prelude::*;
 
+use super::chunk::SizedGrid as _;
+
 pub trait TerrainGenerator<T: PartialEq> {
     fn generate(&self, pos: Vec3, blocks: &mut ChunkStore<T>);
 }

@@ -1,14 +1,24 @@
-use crate::data::{FaceProperties, LoadedMaterials};
-use crate::ext::{Convert, VecExt};
+use crate::math::vec::IsVec;
 use crate::world::chunk::ChunkStore;
 use crate::world::material::Side;
 use crate::MaterialID;
+use crate::{data::MaterialProperties, convert::Convert};
+use crate::{
+    data::{FaceProperties, LoadedMaterials},
+    world::chunk::SizedGrid as _,
+};
 use bevy::render::mesh::*;
 use bevy::{prelude::*, render::render_asset::RenderAssetUsages};
 use indexmap::IndexSet;
+use ndarray::Array;
+use once_cell::sync::Lazy;
+use rayon::prelude::*;
 use std::hash::{Hash, Hasher};
 
-use super::chunk_material::ChunkMaterial;
+use super::{
+    chunk_material::ChunkMaterial, wrapped_rows, SideView, SizedGrid, SliceView,
+    SIDE_VIEW_TRANSFORMS,
+};
 
 pub fn visible_chunk_sides(player_pos: Vec3, chunk_pos: Vec3) -> [Side; 3] {
     [
@@ -30,151 +40,208 @@ pub fn visible_chunk_sides(player_pos: Vec3, chunk_pos: Vec3) -> [Side; 3] {
     ]
 }
 
-#[derive(Debug, Clone, Component)]
-#[repr(transparent)]
-pub struct ChunkMesh {
-    pub dirty: bool,
+static FLIP_OPPOSITE_TRANSFORMS: Lazy<[(Mat3, Vec3); 6]> = Lazy::new(|| {
+    Side::ALL
+        .map(|it| {
+            SIDE_VIEW_TRANSFORMS[it.opposite() as usize].0
+                * SIDE_VIEW_TRANSFORMS[it as usize].0.inverse()
+        })
+        .map(wrapped_rows)
+});
+
+pub struct FaceInfo<'a> {
+    position: [Vec3; 4],
+    material: &'a MaterialProperties,
 }
 
-/// TODO: Meshing optimizations:
-/// - Runs for each side, can run once per axis
-pub fn greedy_mesh(blocks: &ChunkStore<MaterialID>, loaded: &LoadedMaterials) -> MeshBuilder {
-    let mut mesh_builder = MeshBuilder::new();
+const SIDE_SIZE: f32 = 1.0;
 
-    for side in Side::ALL {
-        let mut ids_above = None;
-        let max_depth = (side.axis().to_vec().convert() * blocks.size).sum();
+impl<'a> FaceInfo<'a> {
+    pub fn new(side: Side, position: UVec3, size: IVec2, material: &'a MaterialProperties) -> Self {
+        let normal = side.normal();
+        let position = position.convert() + normal * (SIDE_SIZE / 2.);
 
-        let [slice_plane_x, slice_plane_y] = side.axis().slice_plane();
-        let (size_x, size_y) = (
-            (slice_plane_x.to_vec().convert() * blocks.size).sum(),
-            (slice_plane_y.to_vec().convert() * blocks.size).sum(),
-        );
+        // FIXME: Test opposite case at the opposite ends - 80% says it's wrong
+        let position = [
+            position,
+            position + (size.convert() * Vec2::new(1., 0.)).extend(0.) * SIDE_SIZE,
+            position + (size.convert() * Vec2::new(1., 1.)).extend(0.) * SIDE_SIZE,
+            position + (size.convert() * Vec2::new(0., 1.)).extend(0.) * SIDE_SIZE,
+        ];
+        FaceInfo { position, material }
+    }
 
-        for depth in 0..max_depth {
-            let mut visited = vec![vec![false; size_x as usize]; size_y as usize];
-            let current = {
-                if let Some(slice) = blocks.get_side_slice(side, depth) {
-                    slice
-                } else {
-                    continue;
-                }
-            };
+    pub fn new_opposite(
+        side: Side,
+        position: UVec3,
+        chunk_size: UVec3,
+        size: IVec2,
+        material: &'a MaterialProperties,
+    ) -> Self {
+        // FIXME: Normalize to lower octant coordinates.
+        let (t_mul, t_add) = FLIP_OPPOSITE_TRANSFORMS[side as usize];
+        let position = t_mul * position.convert() + t_add * (chunk_size - UVec3::ONE).convert();
+        let size = (t_add * -1) * size;
+        FaceInfo::new(side.opposite(), size, position, material)
+    }
+}
 
-            for y in 0..size_y {
-                for x in 0..size_x {
-                    if !is_block_face_visible(&visited, &current, ids_above.as_ref(), x, y) {
-                        continue;
-                    }
+pub fn greedy_mesh<'a, G: SizedGrid<MaterialID>>(
+    blocks: &G,
+    loaded: &'a LoadedMaterials,
+) -> [Vec<FaceInfo<'a>>; 6] {
+    [Side::East, Side::Top, Side::South]
+        .into_par_iter()
+        .flat_map(|side| {
+            let blocks = SideView::new(blocks, side);
 
-                    let id = current[y as usize][x as usize];
+            let mut consumed =
+                Array::from_elem((blocks.size().x as usize, blocks.size().y as usize, 2), -1);
 
-                    let (w, h) = {
-                        let mut w = 1;
-                        for w_test in 1..(size_x - x) {
-                            let visible = is_block_face_visible(
-                                &visited,
-                                &current,
-                                ids_above.as_ref(),
-                                x + w_test,
-                                y,
-                            );
-                            if !visible || current[y as usize][(x + w_test) as usize] != id {
-                                break;
-                            }
-                            w = w_test + 1;
-                        }
+            (0..blocks.size().z as i32)
+                .into_par_iter()
+                .map(|depth| {
+                    let mut ids_before = SliceView::try_new(&blocks, depth - 1);
+                    let mut ids_at = SliceView::new(&blocks, depth as u32);
+                    let mut ids_after = SliceView::try_new(&blocks, depth + 1);
 
-                        let mut h = 1;
-                        for h_test in 1..(size_y - y) {
-                            let mut test = true;
-                            for quad_x in x..(x + w) {
-                                let visible = is_block_face_visible(
-                                    &visited,
-                                    &current,
-                                    ids_above.as_ref(),
-                                    quad_x,
-                                    y + h_test,
-                                );
-                                if !visible || current[quad_x as usize][(y + h_test) as usize] != id
+                    let mut front_faces = Vec::new();
+                    let mut back_faces = Vec::new();
+
+                    for x in 0..blocks.size().x as usize {
+                        let mut y = 0;
+                        while y < blocks.size().y as usize {
+                            let pos = UVec2::new(x as u32, y as u32);
+                            let current = match ids_at.get_pos_value(pos) {
+                                Some(it) => it,
+                                None => {
+                                    consumed[(x, y, 0)] = depth;
+                                    consumed[(x, y, 1)] = depth;
+                                    continue;
+                                }
+                            };
+                            let material = {
+                                #[cfg(debug_assertions)]
                                 {
-                                    test = false;
-                                    break;
+                                    loaded.properties.get(current).expect(
+                                        format!("material registry missing id: {}", current)
+                                            .as_str(),
+                                    )
+                                }
+                                #[cfg(not(debug_assertions))]
+                                {
+                                    loaded.properties.get(current).unwrap_unchecked()
+                                }
+                            };
+
+                            let check_side = |side: Option<SliceView<'_, MaterialID, _>>| {
+                                let mut h = 1;
+                                let mut w = 1;
+
+                                let mut pos = |h, w| UVec2::new(x as u32 + h, y as u32 + w);
+
+                                while ids_at.get_pos_value(pos(h, 0)) == Some(current) {
+                                    let above = side.and_then(|it| it.get_pos_value(pos(h, 0)));
+                                    if !is_block_face_visible(above, current, material, loaded) {
+                                        break;
+                                    }
+                                    h += 1;
+                                }
+                                'outer: loop {
+                                    for ih in 0..h {
+                                        if ids_at.get_pos_value(pos(ih, w)) != Some(current) {
+                                            break 'outer;
+                                        }
+                                        let above =
+                                            side.and_then(|it| it.get_pos_value(pos(ih, w)));
+
+                                        if !is_block_face_visible(above, current, material, loaded)
+                                        {
+                                            break 'outer;
+                                        }
+                                    }
+                                    w += 1;
+                                }
+
+                                return IVec2::new(w as i32, h as i32);
+                            };
+
+                            let mut min_y = 1;
+
+                            // top face
+                            if consumed[(x, y, 0)] != depth {
+                                let above = ids_before.and_then(|it| it.get_pos_value(pos));
+
+                                if is_block_face_visible(above, current, material, loaded) {
+                                    let size = check_side(ids_before);
+
+                                    front_faces.push(FaceInfo::new(
+                                        side,
+                                        UVec3::new(x as u32, y as u32, depth as u32),
+                                        size,
+                                        material,
+                                    ));
+
+                                    min_y = std::cmp::min(min_y, size.y);
                                 }
                             }
-                            if !test {
-                                break;
+
+                            // bottom face
+                            if consumed[(x, y, 1)] != depth {
+                                let above = ids_after.and_then(|it| it.get_pos_value(pos));
+
+                                if is_block_face_visible(above, current, material, loaded) {
+                                    let size = check_side(ids_after);
+
+                                    back_faces.push(FaceInfo::new_opposite(
+                                        side,
+                                        UVec3::new(x as u32, y as u32, depth as u32),
+                                        blocks.size(),
+                                        size,
+                                        material,
+                                    ));
+
+                                    min_y = std::cmp::min(min_y, size.y);
+                                }
                             }
 
-                            h = h_test + 1;
-                        }
-
-                        (w, h)
-                    };
-
-                    for y in y..(y + h) {
-                        for x in x..(x + w) {
-                            visited[y as usize][x as usize] = true;
+                            y += min_y as usize;
                         }
                     }
-                    /*
-                    let color = blocks
-                        .value_of_index(id)
-                        .and_then(|id| loaded.get(id).map(|props| props.base_color))
-                        .unwrap_or(Vec4::new(0.1, 0.3, 0.8, 1.0));
-                    */
 
-                    // id + side ---insert--> buffer
-                    // tex_id
-
-                    let corners = [
-                        side.depth_pos(blocks.size, depth, UVec2::new(x, y)),
-                        side.depth_pos(blocks.size, depth, UVec2::new(x + w, y)),
-                        side.depth_pos(blocks.size, depth, UVec2::new(x, y + h)),
-                        side.depth_pos(blocks.size, depth, UVec2::new(x + w, y + h)),
-                    ];
-
-                    mesh_builder.push_face(id, side, corners)
-                }
-            }
-
-            ids_above = Some(current);
-        }
-    }
-
-    mesh_builder
+                    [front_faces, back_faces]
+                })
+                .fold(
+                    || [Vec::new(), Vec::new()],
+                    |acc, it| {
+                        let [mut a, mut b] = it;
+                        acc[0].append(&mut a);
+                        acc[1].append(&mut b);
+                    },
+                )
+        })
+        .collect()
 }
 
-// TODO: Post terrain gen figure out optimal mesh vec capacity
-#[inline(always)] // avoids jumps in greedy meshing
+#[inline(always)]
 fn is_block_face_visible(
-    visited: &[Vec<bool>],
-    ids: &[Vec<u16>],
-    above: Option<&Vec<Vec<u16>>>,
-    x: u32,
-    y: u32,
+    above: Option<&MaterialID>,
+    current: &MaterialID,
+    current_mat: &MaterialProperties,
+    loaded: &LoadedMaterials,
 ) -> bool {
-    let x = x as usize;
-    let y = y as usize;
+    let above_mat = above.and_then(|it| loaded.properties.get(it));
 
-    if visited[y][x] {
-        return false;
-    }
-
-    let id = ids[y][x];
-    if id == 0 {
-        return false;
-    }
-
-    if let Some(above) = above {
-        let id_above = above[y][x];
-
-        if id_above != 0 {
+    if let Some(above_mat) = above_mat {
+        if above_mat.color.w == 1.0 {
+            return false;
+        }
+        if above == Some(current) {
             return false;
         }
     }
 
-    true
+    current_mat.color.w != 0.0
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -204,8 +271,7 @@ const MISSING_VOXEL_FACE: FaceProperties = FaceProperties {
     roughness: 0.8,
     metallic: 0.2,
     reflectance: 0.9,
-    base_texture: 0,
-    base_texture_uv: Vec2::new(0., 0.),
+    uv: Vec2::new(0., 0.),
     emissive_color: Vec4::new(0., 0., 0., 1.),
 };
 

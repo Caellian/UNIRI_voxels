@@ -1,13 +1,11 @@
 use crate::data::LoadedMaterials;
 use crate::entity::player::PlayerChunk;
 use crate::world::chunk::chunk_material::ChunkMaterial;
-use crate::world::chunk::mesh::ChunkMesh;
-use crate::world::chunk::{Chunk, ChunkInfo, Mesher};
+use crate::world::chunk::{ChunkInfo, Mesher};
 use bevy::prelude::*;
 use rand::RngCore;
 
-use self::chunk::mesh::greedy_mesh;
-use self::chunk::ChunkStore;
+use self::chunk::{mesh::greedy_mesh, ChunkStore};
 use self::gen::old::SimplexChunkGen;
 use self::material::MaterialID;
 
@@ -25,20 +23,22 @@ pub enum WorldAxis {
 }
 
 impl WorldAxis {
+    #[inline]
     pub const fn to_vec(self) -> Vec3 {
-        match self {
-            WorldAxis::X => Vec3::new(1.0, 0.0, 0.0),
-            WorldAxis::Y => Vec3::new(0.0, 1.0, 0.0),
-            WorldAxis::Z => Vec3::new(0.0, 0.0, 1.0),
-        }
+        [
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+        ][self as usize]
     }
 
+    #[inline]
     pub const fn slice_plane(self) -> [WorldAxis; 2] {
-        match self {
-            WorldAxis::X => [WorldAxis::Y, WorldAxis::Z],
-            WorldAxis::Y => [WorldAxis::X, WorldAxis::Z],
-            WorldAxis::Z => [WorldAxis::X, WorldAxis::Y],
-        }
+        [
+            [WorldAxis::Y, WorldAxis::Z],
+            [WorldAxis::X, WorldAxis::Z],
+            [WorldAxis::X, WorldAxis::Y],
+        ][self as usize]
     }
 }
 
@@ -235,7 +235,7 @@ pub fn build_fresh_chunks(
     materials: Res<LoadedMaterials>,
 ) {
     for (chunk, info, store) in unbuilt.iter_mut() {
-        let mesh_builder = match info.mesher {
+        let meshes = match info.mesher {
             Mesher::Greedy => greedy_mesh(store, &materials),
         };
 
@@ -279,4 +279,37 @@ pub fn on_chunk_change(
     _player_chunk: Query<&PlayerChunk, Changed<PlayerChunk>>,
     _chunks: Query<(Entity, &Transform, &ChunkMesh)>,
 ) {
+}
+
+#[derive(Debug, Bundle)]
+pub struct Chunk {
+    pub info: ChunkInfo,
+    pub blocks: ChunkStore<MaterialID>,
+    pub spatial: SpatialBundle,
+}
+
+impl Chunk {
+    pub fn new(pos: Vec3, size: UVec3) -> Chunk {
+        Chunk {
+            info: ChunkInfo {
+                mesher: Mesher::Greedy,
+            },
+            blocks: ChunkStore::new(size),
+            spatial: SpatialBundle {
+                visibility: Visibility::Hidden,
+                transform: Transform::from_translation(pos),
+                ..default()
+            },
+        }
+    }
+
+    pub fn new_gen<G: TerrainGenerator<MaterialID>>(
+        pos: Vec3,
+        size: UVec3,
+        generator: &G,
+    ) -> Chunk {
+        let mut result = Chunk::new(pos, size);
+        generator.generate(pos, &mut result.blocks);
+        result
+    }
 }

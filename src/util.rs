@@ -95,3 +95,7 @@ where
 
     bevy::asset::Handle::weak_from_u128(bytes)
 }
+
+pub(crate) struct If<const B: bool>;
+pub trait True {}
+impl True for If<true> {}

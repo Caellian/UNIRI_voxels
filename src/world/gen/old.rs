@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use noise::{Fbm, NoiseFn, Simplex};
 
-use crate::world::material::MaterialID;
+use crate::world::{material::MaterialID, chunk::SizedGrid as _};
 
 use super::{Fill, TerrainGenerator};
 
