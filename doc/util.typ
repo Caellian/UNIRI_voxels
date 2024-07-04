@@ -25,3 +25,17 @@
 }
 
 #let add-more = box(fill: red, inset: (x: 2pt), outset: (y: 2pt), text(weight: "bold", fill: white)[DODAJ SADRŽAJ])
+
+
+#let formula_counter = counter("math_formula")
+#let formula = (body) => figure(
+  [
+    #formula_counter.step()
+    #body
+    #v(-8pt)
+    (#formula_counter.display())
+  ],
+  kind: "formula",
+  supplement: none,
+  caption: none,
+)

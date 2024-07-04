@@ -1,11 +1,15 @@
+#import "../util.typ": formula
+
 = Alternativne metode prikaza
 
 == Ray tracing
 
 Svijetlost se može odbijati i ne završiti u kameri @Pharr2023-ex:
+#formula(
 $
 L_0(p, omega_0) = L_e (p, omega_0) + integral_(cal(S)^2) f(p, omega_0, omega_i) L_i (p,omega_i)|cos(theta_i)| d omega_i
 $
+) <light_sum>
 
 Pojednostavljenje... promatramo zrake koje završe u kameri tako što simuliramo zrake _iz_ kamere i badabim, badapam zbrojimo konačan broj odskakanja, bla bla, itd.
 

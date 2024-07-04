@@ -14,8 +14,8 @@
 )
 
 #include "./content/uvod.typ"
+#include "./content/oblici.typ"
 #include "./content/raytrace.typ"
-#include "./content/strukture.typ"
 #include "./content/prijevremeno.typ"
 #include "./content/realno_vrijeme.typ"
 #include "./content/animacije.typ"

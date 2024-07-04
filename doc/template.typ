@@ -146,7 +146,14 @@
     show raw: set par(
       leading: 0.5em,
     )
-    
+
+    show figure.where(
+      kind: image
+    ): set figure.caption(position: bottom)
+    show figure.where(
+      kind: table
+    ): set figure.caption(position: top)
+
     inserts
 
     outline(

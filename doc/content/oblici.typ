@@ -1,4 +1,39 @@
 #import "@preview/fletcher:0.4.2": *
+#import "../util.typ": formula
+
+= Oblici volumentrijskih podataka
+
+Volumentrijski podaci se mogu predstaviti na nekoliko različitih načina gdje je područje primjene od velike važnosti za odabir idealne reprezentacije. Rasterizacija ovakvih podataka je generalno spora pa krivi odabir može učiniti izvedbu znatno kompliciranijom ili nemogučom.
+
+Po definiciji iz teorije skupova, volumen tijela je definiran kao
+
+#formula(
+$
+V := {(x,y,z) in RR | "uvijet za" (x,y,z)}
+$
+) <volumen>
+
+gdje je uvijet jednadžba ili nejednadžba koja određuje ograničenja volumena, a $(x,y,z)$ uređena trojka koja predstavlja koordinate prostora u kojem se volumen nalazi.
+
+S obzirom da se radi o skupu koji u trenutku prikaza mora biti određen, možemo ga aproksimirati i skupom unaprijed određenih točaka.
+
+Iz toga slijedi da je bilo koja funkcija čija je kodomena skup _skupova uređenih trojki elemenata $RR$_ prikladna za predstavljanje volumetrijskih podataka.
+
+Osim same pohrane informacije o postojanju neke točke $(x,y,z)$, u primjeni je bitna i pohrana podataka asociranih s tom točkom što se može matematički modelirati kao injektivna funkcija koja preslikava koordinate točke na sukladne podatke.
+
+== Računalna pohrana volumena
+
+Za pohranu volumentrijskih podataka u računalstvi su česte primjene:
+- diskretnih podataka (unaprijed određenih vrijednosti) u obliku
+  - nizova točaka ili "oblaka točaka" (engl. _point could_), ili
+  - polja točaka (engl. _voxel grid_)
+- jednadžbi pohranjenih u shaderima koje se koriste u konjunkciji s algoritmima koračanja po zrakama svijetlosti (engl. _ray marching_).
+
+Diskretni podaci imaju jednostavniju implementaciju i manju algoritamsku složenost, no zauzimaju značajno više prostora u memoriji i na uređajima za trajnu pohranu. Za ray marching algoritme vrijedi obratno pa se ponajviše koriste za jednostavnije volumene i primjene gdje su neizbježni.
+
+Definicija za volumen (@volumen) pruža korisno ograničenje jer pokazuje da možemo doći do volumetrijskih podataka i na druge načine. #linebreak() Primjer toga je česta primjena složenijih funkcija koje proceduralno generiraju nizove točaka za prikaz. Ovaj oblik uporabe je idealan za računalne igrice koje se ne koriste stvarnim podacima jer se oslanja na dobre karakteristike diskretnog oblika, a izbjegava nedostatak velikih prostornih zahtjeva na uređajima za trajnu pohranu.
+
+#pagebreak()
 
 = Strukture za pohranu volumetrijskih podataka
 
