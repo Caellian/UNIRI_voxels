@@ -1,19 +1,9 @@
 #import "util.typ": locale-date-format
 
-// TODO: Use official logo (fonts don't 100% match)
-#let logo = align(horizon, stack(dir: ltr,
-  spacing: 5pt,
-  image(
-    "./FIDIT-logo.svg",
-    height: 3cm
-  ),
-  align(left, text(font: "FreeSans", stack(
-    spacing: 3pt,
-    text(size: 5.5pt, spacing: 2pt)[Sveučilište u Rijeci],
-    text(weight: "bold", size: 8pt, par(leading: 0.3em, [Fakultet informatike #linebreak() i digitalnih tehnologija])),
-    v(5pt)
-  ))),
-))
+#let logo = image(
+  "./FIDIT-logo.png",
+  height: 2cm
+)
 
 #let title-page = (
   study,
