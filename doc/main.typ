@@ -2,7 +2,7 @@
 
 #show: config(
   [Završni rad],
-  [Metode rasterizacije volumetrijskih struktura u računalnoj grafici],
+  [Metode prikaza volumetrijskih struktura u računalnoj grafici],
   [Tin Švagelj],
   attributions: [
     *Mentor:* doc. dr. sc., Miran Pobar
@@ -14,12 +14,12 @@
 )
 
 #include "./content/uvod.typ"
+#include "./content/raytrace.typ"
 #include "./content/strukture.typ"
 #include "./content/prijevremeno.typ"
 #include "./content/realno_vrijeme.typ"
 #include "./content/animacije.typ"
 #include "./content/usporedba.typ"
-#include "./content/prakticni.typ"
 #include "./content/zakljucak.typ"
 
 #bibliography(

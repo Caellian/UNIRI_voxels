@@ -1,4 +1,4 @@
-= Rasterizacija u realnom vremenu
+= Prikaz u realnom vremenu
 
 - https://0fps.net/2012/06/30/meshing-in-a-minecraft-game/
 - https://www.reddit.com/r/VoxelGameDev/comments/j89l6j/texturing_with_greedy_meshing/

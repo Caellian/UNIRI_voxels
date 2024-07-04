@@ -1,6 +1,6 @@
 = Usporedba s poligonima
 
-S obzirom na brojne postojeće metode lažiranja fizike, prikaza, itd. radi li se o stilističkom izboru?
+Zbog prethodnih ograničenja u računalnoj memoriji, uporaba voksela je značajno slabije istražena metoda pohrane modela i prikaza. Postojeći harver je optimiran za prikaz tradicionalnih
 
 == Problemi
 

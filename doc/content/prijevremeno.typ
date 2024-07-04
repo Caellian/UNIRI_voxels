@@ -1,4 +1,4 @@
-= Prijevremena rasterizacija
+= Prijevremen prikaz
 
 - Primjene: medicina, statične scene i slike
 
