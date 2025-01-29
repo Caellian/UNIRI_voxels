@@ -1,6 +1,8 @@
 #[macro_export]
 macro_rules! decl_id_type {
     ($name: ident) => {
+        // TODO: Interning
+
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         #[serde(untagged)]
         pub enum $name {
@@ -95,3 +97,7 @@ where
 
     bevy::asset::Handle::weak_from_u128(bytes)
 }
+
+pub(crate) struct If<const B: bool>;
+pub trait True {}
+impl True for If<true> {}

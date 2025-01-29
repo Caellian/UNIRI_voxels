@@ -1,5 +1,5 @@
 use crate::error::ResourceError;
-use crate::world::material::Side;
+use crate::math::side::Side;
 use crate::MaterialID;
 use ahash::HashMap;
 use bevy::prelude::*;
@@ -92,14 +92,8 @@ pub struct FaceProperties {
     #[serde(deserialize_with = "crate::color::deserialize_hex_color")]
     pub base_color: Vec4,
 
-    // TODO: Handle optional textures
-    // sentinel 0?
-    /// texture_3d layer
-    #[serde(skip_deserializing)]
-    pub base_texture: u32,
-    /// position on texture_3d layer
-    #[serde(skip_deserializing)]
-    pub base_texture_uv: Vec2,
+    #[serde(skip)]
+    pub uv: Vec2,
 
     #[serde(deserialize_with = "crate::color::deserialize_hex_color")]
     pub emissive_color: Vec4,
@@ -132,8 +126,7 @@ impl Default for FaceProperties {
             metallic: 0.5,
             reflectance: 0.5,
 
-            base_texture: Default::default(),
-            base_texture_uv: Default::default(),
+            uv: Default::default(),
         }
     }
 }

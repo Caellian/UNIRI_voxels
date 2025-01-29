@@ -1,16 +1,18 @@
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::pbr_bindings
-#import bevy_pbr::mesh_bindings
+#import bevy_pbr::{
+    mesh_view_bindings,
+    pbr_bindings,
+    mesh_bindings,
 
-#import bevy_pbr::mesh_functions
+    mesh_functions,
 
-#import bevy_pbr::utils
-#import bevy_pbr::clustered_forward
-#import bevy_pbr::lighting
-#import bevy_pbr::pbr_ambient
-#import bevy_pbr::shadows
-#import bevy_pbr::fog
-#import bevy_pbr::pbr_functions
+    utils,
+    clustered_forward,
+    lighting,
+    pbr_ambient,
+    shadows,
+    fog,
+    pbr_functions,
+}
 
 struct Vertex {
     @location(0) position: vec3<f32>,
@@ -31,7 +33,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
-    out.clip_position = mesh_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
+    out.clip_position = mesh_functions::mesh_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
     out.face_index = vertex.face_index;
     out.normal = vertex.normal;
     out.uv = vertex.uv;
@@ -111,7 +113,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     pbr_input.is_orthographic = view.projection[3].w == 1.0;
 
     var normal: vec3<f32> = in.normal;
-    if (!in.is_front) {
+    if !in.is_front {
         normal = -normal;
     }
 

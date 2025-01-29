@@ -1,4 +1,4 @@
-use bevy::prelude::{Color, Vec4};
+use bevy::{prelude::{Color, Vec4}, color::Srgba};
 use serde::de::{Error, Visitor};
 use serde::Deserializer;
 use std::fmt::Formatter;
@@ -101,11 +101,11 @@ impl From<DecimalColor> for Color {
             val.0 & 0xFF,
         );
 
-        Color::Rgba {
+        Color::Srgba(Srgba {
             red: r as f32 / 255.0,
             green: g as f32 / 255.0,
             blue: b as f32 / 255.0,
             alpha: a as f32 / 255.0,
-        }
+        })
     }
 }

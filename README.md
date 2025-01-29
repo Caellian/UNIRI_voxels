@@ -1,6 +1,10 @@
 # Završni rad
 
-Dokumentacija: [PDF](https://raw.githubusercontent.com/Caellian/UNIRI_voxels/pdf/main.pdf)
+## Dokumentacija
+
+- [Repo](https://github.com/Caellian/UNIRI_voxels_doc)
+
+[![https://github.com/Caellian/UNIRI_voxels_doc/raw/trunk/preview.png](https://github.com/Caellian/UNIRI_voxels_doc/raw/trunk/preview.png)](https://raw.githubusercontent.com/Caellian/UNIRI_voxels_doc/pdf/main.pdf)
 
 ## Licenca
 

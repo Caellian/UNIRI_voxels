@@ -1,6 +1,6 @@
 use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::prelude::*;
-use bevy::render::mesh::{MeshVertexAttribute, MeshVertexBufferLayout};
+use bevy::render::mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef};
 use bevy::render::render_resource::{
     AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
 };
@@ -37,20 +37,20 @@ impl ChunkMaterial {
 }
 
 impl Material for ChunkMaterial {
-    #[cfg(not(feature = "debug"))]
+    #[cfg(not(debug_assertions))]
     fn vertex_shader() -> ShaderRef {
         CHUNK_SHADER_HANDLE.into()
     }
-    #[cfg(feature = "debug")]
+    #[cfg(debug_assertions)]
     fn vertex_shader() -> ShaderRef {
         "world/chunk/chunk_shader.wgsl".into()
     }
 
-    #[cfg(not(feature = "debug"))]
+    #[cfg(not(debug_assertions))]
     fn fragment_shader() -> ShaderRef {
         CHUNK_SHADER_HANDLE.into()
     }
-    #[cfg(feature = "debug")]
+    #[cfg(debug_assertions)]
     fn fragment_shader() -> ShaderRef {
         "world/chunk/chunk_shader.wgsl".into()
     }
@@ -66,10 +66,10 @@ impl Material for ChunkMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.vertex.buffers = vec![layout.get_layout(&[
+        descriptor.vertex.buffers = vec![layout.0.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             Mesh::ATTRIBUTE_NORMAL.at_shader_location(1),
             Mesh::ATTRIBUTE_UV_0.at_shader_location(2),

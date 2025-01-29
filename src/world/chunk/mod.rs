@@ -1,11 +1,16 @@
-use crate::ext::{Convert, VecExt};
-use crate::world::gen::TerrainGenerator;
-use crate::world::material::Side;
-use crate::MaterialID;
+use std::ptr::addr_of;
+
 use bevy::prelude::*;
+
+pub use view::*;
+
+use crate::math::side::Side;
+use crate::math::vec::IsVec;
+use crate::util::MybOwned;
 
 pub mod chunk_material;
 pub mod mesh;
+pub mod view;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 #[repr(u8)]
@@ -22,11 +27,19 @@ pub struct ChunkInfo {
 
 pub type ChunkValueIndex = u16;
 pub const MAX_CHUNK_VALUES: usize = ChunkValueIndex::MAX as usize;
+pub const CHUNK_FRONT: Side = Side::South;
 
+/// Container for a 3D grid/array of values.
+///
+/// Chunk values are stored in x, z, y order in a contiguous block of memory.
+/// Default (front-facing) [`Side`] of a chunk is [`south`](Side::South).
 #[derive(Debug, Default, Component)]
 pub struct ChunkStore<T: PartialEq> {
+    /// Out of order list of values stored in this store
     pub values: Vec<T>,
+    /// Dimensions of the store used to convert [`UVec3`] coordinates into [`content`] index.
     pub size: UVec3,
+    /// Ordered sequence of value indices.
     pub content: Vec<ChunkValueIndex>,
 }
 
@@ -61,69 +74,6 @@ impl<T: PartialEq> ChunkStore<T> {
         self.size == UVec3::ZERO || self.values.len() == 0 && self.content.len() == 0
     }
 
-    #[inline]
-    fn get_position_index(&self, pos: UVec3) -> usize {
-        pos.x as usize
-            + pos.z as usize * self.size.x as usize
-            + pos.y as usize * self.size.x as usize * self.size.z as usize
-    }
-
-    pub fn insert_key(&mut self, key: T) -> u16 {
-        if self.values.len() + 1 > MAX_CHUNK_VALUES {
-            panic!("overfull chunk palette");
-        }
-        self.values.push(key);
-        self.values.len() as u16
-    }
-
-    pub fn get_side_slice_pos(&self, side: Side, depth: u32, x: u32, y: u32) -> u16 {
-        tracing::trace!(
-            "get_side_slice_pos(side:{}, depth:{}, x:{}, y:{}) [size: ({},{},{})]",
-            side,
-            depth,
-            x,
-            y,
-            self.size.x,
-            self.size.y,
-            self.size.z,
-        );
-
-        let i = self.get_position_index(match side {
-            Side::Top => UVec3::new(y, self.size.y - 1 - depth, x),
-            Side::Bottom => UVec3::new(self.size.x - 1 - y, depth, x),
-            Side::West => UVec3::new(self.size.x - 1 - x, y, depth),
-            Side::East => UVec3::new(x, y, self.size.z - 1 - depth),
-            Side::North => UVec3::new(self.size.x - 1 - depth, y, self.size.z - 1 - x),
-            Side::South => UVec3::new(depth, y, x),
-        });
-
-        self.content.get(i).cloned().unwrap_or(0)
-    }
-
-    #[must_use]
-    pub fn value_of_index(&self, index: u16) -> Option<&T> {
-        if index == 0 {
-            None
-        } else {
-            self.values.get(index as usize - 1)
-        }
-    }
-
-    #[must_use]
-    pub fn index_of_value(&self, value: &T) -> Option<u16> {
-        self.values
-            .iter()
-            .enumerate()
-            .take(u16::MAX as usize - 1)
-            .find_map(|(i, it)| {
-                if it == value {
-                    Some(i as u16 + 1)
-                } else {
-                    None
-                }
-            })
-    }
-
     pub fn map<'a, V: PartialEq>(&'a self, f: fn(&'a T) -> V) -> ChunkStore<V> {
         ChunkStore {
             values: self.values.iter().map(f).collect(),
@@ -139,116 +89,150 @@ impl<T: PartialEq> ChunkStore<T> {
             content: self.content,
         }
     }
+}
 
-    pub fn as_ref<'a>(&'a self) -> ChunkStore<&'a T> {
-        self.map(|it: &'a T| it)
+pub trait SizedGrid<'d, T>
+where
+    T: 'd,
+{
+    #[must_use]
+    fn size(&self) -> UVec3;
+
+    #[must_use]
+    fn get_position_index(&self, pos: UVec3) -> usize;
+
+    #[must_use]
+    fn get_pos_key(&self, pos: UVec3) -> Option<ChunkValueIndex>;
+    #[must_use]
+    fn values(&self) -> Vec<&'d T>;
+    #[must_use]
+    fn index_of_value(&self, value: &T) -> Option<u16>
+    where
+        T: PartialEq,
+    {
+        self.values()
+            .iter()
+            .enumerate()
+            .take(u16::MAX as usize - 1)
+            .find_map(|(i, it)| {
+                if *it == value {
+                    Some(i as u16 + 1)
+                } else {
+                    None
+                }
+            })
     }
-
-    pub fn get_value(&self, pos: UVec3) -> Option<&T> {
-        if let Some(i) = self.content.get(self.get_position_index(pos)).cloned() {
-            self.values.get(i as usize - 1)
+    #[must_use]
+    fn value_of_index(&self, index: u16) -> Option<&'d T> {
+        if index == 0 {
+            None
+        } else {
+            self.values().get(index as usize - 1).map(|it| *it)
+        }
+    }
+    #[must_use]
+    fn get_pos_value(&self, pos: UVec3) -> Option<&'d T> {
+        if let Some(i) = self.get_pos_key(pos) {
+            self.values().get(i as usize - 1).map(|it| *it)
         } else {
             None
         }
     }
+}
 
-    pub fn set_pos_id(&mut self, pos: UVec3, value: u16) {
-        let pos_i = self.get_position_index(pos);
-        if let Some(pos) = self.content.get_mut(pos_i) {
+pub trait SizedGridMut<'d, T>: SizedGrid<'d, T>
+where
+    T: 'd,
+{
+    fn get_pos_key_mut(&mut self, pos: UVec3) -> Option<&mut ChunkValueIndex>;
+    #[must_use]
+    fn value_list_mut(&mut self) -> &mut Vec<T>;
+    fn insert_key(&mut self, key: T) -> u16;
+    #[inline]
+    fn set_pos_id(&mut self, pos: UVec3, value: ChunkValueIndex) {
+        if let Some(pos) = self.get_pos_key_mut(pos) {
             *pos = value;
         }
     }
-
-    pub fn set_pos_value(&mut self, pos: UVec3, value: Option<T>) {
-        if pos.x >= self.size.x || pos.y >= self.size.y || pos.z >= self.size.z {
-            self.as_ref();
-            // TODO: resize chunk
+    fn set_pos_value(&mut self, pos: UVec3, value: Option<T>)
+    where
+        T: PartialEq,
+    {
+        if pos.x >= self.size().x || pos.y >= self.size().y || pos.z >= self.size().z {
+            return;
         }
         let i = value
             .map(|it| {
                 self.index_of_value(&it).unwrap_or_else(|| {
-                    self.values.push(it);
-                    self.values.len() as u16
+                    self.value_list_mut().push(it);
+                    self.values().len() as u16
                 })
             })
             .unwrap_or(0);
 
         self.set_pos_id(pos, i);
     }
-
-    pub fn set_or_clone_pos_value(&mut self, pos: UVec3, value: Option<&T>)
+    fn set_or_clone_pos_value(&mut self, pos: UVec3, value: Option<&T>)
     where
-        T: Clone,
+        T: PartialEq + Clone,
     {
         let i = value
             .map(|it| {
                 self.index_of_value(it).unwrap_or_else(|| {
-                    self.values.push(it.clone());
-                    self.values.len() as u16
+                    self.value_list_mut().push(it.clone());
+                    self.values().len() as u16
                 })
             })
             .unwrap_or(0);
 
-        let pos_i = self.get_position_index(pos);
-        if let Some(pos) = self.content.get_mut(pos_i) {
-            *pos = i;
-        }
+        self.set_pos_id(pos, i);
     }
+}
 
-    pub fn get_side_slice(&self, side: Side, depth: u32) -> Option<Vec<Vec<u16>>> {
-        tracing::trace!(
-            "get_side_slice(side:{}, depth:{}) [size: ({},{},{})]",
-            side,
-            depth,
-            self.size.x,
-            self.size.y,
-            self.size.z,
-        );
-        if (side.axis().to_vec().convert() * self.size).sum() <= depth {
-            return None;
-        }
-
-        let mut result = vec![vec![0; self.size.y as usize]; self.size.x as usize];
-
-        for y in 0..self.size.y {
-            for x in 0..self.size.x {
-                result[y as usize][x as usize] = self.get_side_slice_pos(side, depth, x, y)
+impl<'d, T: PartialEq + 'd> SizedGrid<'d, T> for ChunkStore<T> {
+    #[inline(always)]
+    fn size(&self) -> UVec3 {
+        self.size
+    }
+    #[inline]
+    fn get_position_index(&self, pos: UVec3) -> usize {
+        pos.x as usize
+            + pos.z as usize * self.size.x as usize
+            + pos.y as usize * self.size.x as usize * self.size.z as usize
+    }
+    #[inline]
+    fn get_pos_key(&self, pos: UVec3) -> Option<ChunkValueIndex> {
+        self.content.get(self.get_position_index(pos)).cloned()
+    }
+    #[inline(always)]
+    fn values(&self) -> Vec<&'d T> {
+        let mut result = Vec::with_capacity(self.values.len());
+        for v in &self.values {
+            unsafe {
+                // SAFETY: Data is guaranteed to be valid for 'd
+                let d = addr_of!(*v);
+                result.push(d.as_ref().unwrap_unchecked())
             }
         }
-
-        Some(result)
-    }
-}
-
-#[derive(Debug, Bundle)]
-pub struct Chunk {
-    pub info: ChunkInfo,
-    pub blocks: ChunkStore<MaterialID>,
-    pub spatial: SpatialBundle,
-}
-
-impl Chunk {
-    pub fn new(pos: Vec3, size: UVec3) -> Chunk {
-        Chunk {
-            info: ChunkInfo {
-                mesher: Mesher::Greedy,
-            },
-            blocks: ChunkStore::new(size),
-            spatial: SpatialBundle {
-                visibility: Visibility::Hidden,
-                transform: Transform::from_translation(pos),
-                ..default()
-            },
-        }
-    }
-
-    pub fn new_gen<G: TerrainGenerator<MaterialID>>(
-        pos: Vec3,
-        size: UVec3,
-        generator: &G,
-    ) -> Chunk {
-        let mut result = Chunk::new(pos, size);
-        generator.generate(pos, &mut result.blocks);
         result
+    }
+}
+
+impl<'d, T: PartialEq + 'd> SizedGridMut<'d, T> for ChunkStore<T> {
+    #[inline]
+    fn get_pos_key_mut(&mut self, pos: UVec3) -> Option<&mut ChunkValueIndex> {
+        let i = self.get_position_index(pos);
+        self.content.get_mut(i)
+    }
+    #[inline(always)]
+    fn value_list_mut(&mut self) -> &mut Vec<T> {
+        &mut self.values
+    }
+    fn insert_key(&mut self, key: T) -> u16 {
+        if self.values.len() + 1 > MAX_CHUNK_VALUES {
+            panic!("overfull chunk palette");
+        }
+        self.values.push(key);
+        self.values.len() as u16
     }
 }
