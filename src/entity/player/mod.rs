@@ -1,9 +1,11 @@
-pub mod fly_cam;
-
-use crate::entity::Health;
 use bevy::prelude::*;
 use derive_more::{Deref, DerefMut};
+
 use fly_cam::FlyCamera;
+
+use crate::entity::Health;
+
+pub mod fly_cam;
 
 #[derive(Debug, Component)]
 pub struct PlayerName(String);

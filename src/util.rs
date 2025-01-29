@@ -1,6 +1,8 @@
 #[macro_export]
 macro_rules! decl_id_type {
     ($name: ident) => {
+        // TODO: Interning
+
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         #[serde(untagged)]
         pub enum $name {

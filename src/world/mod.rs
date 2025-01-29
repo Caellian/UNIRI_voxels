@@ -1,46 +1,13 @@
-use crate::data::LoadedMaterials;
-use crate::entity::player::PlayerChunk;
-use crate::world::chunk::chunk_material::ChunkMaterial;
-use crate::world::chunk::{ChunkInfo, Mesher};
 use bevy::prelude::*;
 use rand::RngCore;
 
-use self::chunk::{mesh::greedy_mesh, ChunkStore};
-use self::gen::old::SimplexChunkGen;
-use self::material::MaterialID;
+use crate::entity::player::PlayerChunk;
 
 pub mod chunk;
 pub mod gen;
 pub mod material;
-pub mod vox;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[repr(u8)]
-pub enum WorldAxis {
-    X = 0,
-    Y = 1,
-    Z = 2,
-}
-
-impl WorldAxis {
-    #[inline]
-    pub const fn to_vec(self) -> Vec3 {
-        [
-            Vec3::new(1.0, 0.0, 0.0),
-            Vec3::new(0.0, 1.0, 0.0),
-            Vec3::new(0.0, 0.0, 1.0),
-        ][self as usize]
-    }
-
-    #[inline]
-    pub const fn slice_plane(self) -> [WorldAxis; 2] {
-        [
-            [WorldAxis::Y, WorldAxis::Z],
-            [WorldAxis::X, WorldAxis::Z],
-            [WorldAxis::X, WorldAxis::Y],
-        ][self as usize]
-    }
-}
+pub mod meta;
+//pub mod vox;
 
 #[derive(Debug, Component)]
 pub struct WorldInfo {
@@ -79,6 +46,7 @@ impl Default for World {
     }
 }
 
+/*
 pub fn spawn_world(
     mut commands: Commands,
     mut _materials: ResMut<Assets<ChunkMaterial>>,
@@ -163,7 +131,9 @@ pub fn spawn_world(
         });
     */
 }
+    */
 
+/*
 pub fn spawn_chunk_markers(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -252,6 +222,7 @@ pub fn build_fresh_chunks(
             .insert(Visibility::Visible);
     }
 }
+*/
 
 pub fn track_player_chunk(
     mut query: Query<(&Transform, &mut PlayerChunk), Changed<Transform>>,
@@ -274,13 +245,16 @@ pub fn track_player_chunk(
     }
 }
 
+/*
 pub fn on_chunk_change(
     _commands: Commands,
     _player_chunk: Query<&PlayerChunk, Changed<PlayerChunk>>,
     _chunks: Query<(Entity, &Transform, &ChunkMesh)>,
 ) {
 }
+*/
 
+/*
 #[derive(Debug, Bundle)]
 pub struct Chunk {
     pub info: ChunkInfo,
@@ -313,3 +287,4 @@ impl Chunk {
         result
     }
 }
+*/

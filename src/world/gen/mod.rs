@@ -1,10 +1,11 @@
-pub mod old;
-
-use crate::world::chunk::ChunkStore;
-use crate::MaterialID;
 use bevy::prelude::*;
 
-use super::chunk::SizedGrid as _;
+use crate::MaterialID;
+use crate::world::chunk::ChunkStore;
+
+use super::chunk::SizedGridMut;
+
+pub mod old;
 
 pub trait TerrainGenerator<T: PartialEq> {
     fn generate(&self, pos: Vec3, blocks: &mut ChunkStore<T>);

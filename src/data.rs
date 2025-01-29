@@ -1,5 +1,5 @@
 use crate::error::ResourceError;
-use crate::world::material::Side;
+use crate::math::side::Side;
 use crate::MaterialID;
 use ahash::HashMap;
 use bevy::prelude::*;

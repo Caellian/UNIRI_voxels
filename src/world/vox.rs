@@ -2,7 +2,7 @@ use crate::{convert::Convert, world::chunk::SizedGridMut};
 use crate::world::chunk::ChunkStore;
 use crate::{error::ResourceError, world::chunk::SizedGrid as _};
 use ahash::{HashMap, HashMapExt};
-use bevy::asset::{AssetLoader, AsyncReadExt, BoxedFuture, LoadContext};
+use bevy::asset::{AssetLoader, AsyncReadExt, LoadContext};
 use bevy::prelude::*;
 use dot_vox::DotVoxData;
 
@@ -15,12 +15,12 @@ impl AssetLoader for VoxLoader {
     type Settings = ();
     type Error = ResourceError;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut bevy::asset::io::Reader,
+        reader: &'a mut bevy::asset::io::Reader<'_>,
         _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
         let name = load_context
             .path()
             .file_name()
@@ -28,7 +28,7 @@ impl AssetLoader for VoxLoader {
             .to_str()
             .expect("bad file name")
             .to_string();
-        Box::pin(async move { load_vox(reader, load_context, name).await })
+        load_vox(reader, load_context, name).await
     }
 
     fn extensions(&self) -> &[&str] {

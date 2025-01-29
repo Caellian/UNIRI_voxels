@@ -4,11 +4,8 @@ name = "voxelbox-bevy-dev"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-wgpu = "0.19"
-bevy = { version = "0.13" }
+wgpu = "0.20"
 bevy_common_assets = { version = "0.10", features = ["ron"] }
 
 clap = { version = "4.2", features = ["derive"] }
@@ -16,7 +13,7 @@ clap = { version = "4.2", features = ["derive"] }
 # Dev
 dot_vox = "5.1"
 
-texture_packer = "0.27"
+texture_packer = "0.29"
 
 # Data
 serde = { version = "1.0", features = ["derive"] }
@@ -26,13 +23,11 @@ rand = "0.8"
 
 paste = "1.0"
 
-rayon = "1.10"
-itertools = "0.12"
+itertools = "0.13"
 num = "0.4"
 
 indexmap = "2.2"
 ahash = "0.8"
-nalgebra = "0.32"
 ndarray = "0.15"
 
 noise = "0.9"
@@ -51,6 +46,46 @@ once_cell = "1.19"
 derive_more = "0.99"
 tt-call = "1.0"
 tt-equal = "0.1"
+maybe-owned = "0.3.4"
+
+[dependencies.futures]
+version = "0.3.30"
+features = ["thread-pool"]
+
+[dependencies.bevy]
+version = "0.14"
+default-features = false
+features = [
+    "animation",
+    "bevy_asset",
+    "bevy_state",
+    "bevy_audio",
+    "bevy_color",
+    "bevy_gilrs",
+    "bevy_scene",
+    "bevy_winit",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_gltf",
+    "bevy_render",
+    #"bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "multi_threaded",
+    "png",
+    "hdr",
+    "vorbis",
+    "x11",
+    # "wayland",
+    "bevy_gizmos",
+    #"android_shared_stdcxx",
+    "tonemapping_luts",
+    "smaa_luts",
+    "default_font", # debug font
+    "webgl2",
+    "sysinfo_plugin",
+    "zlib"
+]
 
 # https://github.com/johnthagen/min-sized-rust
 [profile.release]
